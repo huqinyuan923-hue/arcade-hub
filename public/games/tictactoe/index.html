@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>井字棋 · 人机对战</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(3,86px)/repeat(3,86px);gap:8px;}
+  .cell{background:#1a1633;border:1px solid rgba(124,58,237,.4);border-radius:12px;font-size:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;}
+  .cell:hover{background:#241e4d;}
+  .cell.win{background:rgba(163,230,53,.18);border-color:#a3e635;box-shadow:0 0 14px rgba(163,230,53,.35);}
+  .x{color:#22d3ee;text-shadow:0 0 12px rgba(34,211,238,.8);}
+  .o{color:#f472b6;text-shadow:0 0 12px rgba(244,114,182,.8);}
+  #status{font-size:15px;color:#94a3b8;min-height:22px;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:10px 30px;border-radius:10px;cursor:pointer;font-size:15px;}
+</style>
+</head>
+<body>
+<h1>⭕ 井字棋 · 人机对战</h1>
+<p class="hud">连胜 <b id="streak">0</b></p>
+<div id="grid"></div>
+<p id="status">你执 ⭕ 先手，赢一局 +100 / 平局 +50 / 输了 +10 并重置连胜</p>
+<button id="btnRestart">重新开始</button>
+<script>
+const gridEl=document.getElementById('grid'),statusEl=document.getElementById('status');
+const WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let board,playing,streak=0,cells;
+
+function newGame(){
+  board=Array(9).fill('');playing=true;
+  gridEl.innerHTML='';cells=[];
+  for(let i=0;i<9;i++){
+    const c=document.createElement('div');c.className='cell';
+    c.addEventListener('click',()=>play(i));
+    gridEl.appendChild(c);cells.push(c);
+  }
+  statusEl.textContent='你执 ⭕，请落子';
+}
+function play(i){
+  if(!playing||board[i])return;
+  board[i]='O';cells[i].textContent='⭕';cells[i].classList.add('o');
+  const r=check('O');
+  if(r){return finish('O',r);}
+  statusEl.textContent='🤖 对手思考中…';
+  playing=false;
+  setTimeout(aiMove,420);
+}
+function aiMove(){
+  // 中等 AI：赢>堵>中心>角>随机
+  const empty=board.map((v,i)=>v?null:i).filter(v=>v!==null);
+  let mv=null;
+  for(const p of ['X','O']){
+    for(const i of empty){
+      const t=[...board];t[i]=p;
+      if(WINS.some(w=>w.every(j=>t[j]===p))){mv=i;break;}
+    }
+    if(mv!==null)break;
+  }
+  if(mv===null){if(!board[4])mv=4;else{const corners=[0,2,6,8].filter(i=>!board[i]);mv=corners.length?corners[Math.random()*corners.length|0]:empty[Math.random()*empty.length|0];}}
+  board[mv]='X';cells[mv].textContent='❌';cells[mv].classList.add('x');
+  playing=true;
+  const r=check('X');
+  if(r){return finish('X',r);}
+  if(board.every(Boolean)){return finish('',null);}
+  statusEl.textContent='你执 ⭕，请落子';
+}
+function check(p){
+  for(const w of WINS)if(w.every(i=>board[i]===p))return w;
+  return null;
+}
+function finish(winner,winLine){
+  playing=false;
+  winLine?.forEach(i=>cells[i].classList.add('win'));
+  let score;
+  if(winner==='O'){
+    streak++;score=100;
+    statusEl.textContent=`🏆 你赢了！连胜 ${streak} · +100`;
+  }else if(winner==='X'){
+    streak=0;score=10;
+    statusEl.textContent='🤖 电脑赢了 · +10，连胜已重置';
+  }else{
+    score=50;
+    statusEl.textContent='🤝 平局 · +50';
+  }
+  document.getElementById('streak').textContent=streak;
+  ArcadeBridge.submitScore(score);
+}
+document.getElementById('btnRestart').addEventListener('click',newGame);
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹打地鼠</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(3,90px)/repeat(3,90px);gap:12px;background:#1a1633;padding:14px;border-radius:16px;}
+  .hole{position:relative;background:#120f28;border-radius:50%;border:2px solid rgba(124,58,237,.4);overflow:hidden;cursor:pointer;}
+  .mole{position:absolute;inset:8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fbbf24,#b45309);display:flex;align-items:center;justify-content:center;font-size:34px;transform:translateY(110%);transition:transform .15s ease-out;}
+  .hole.up .mole{transform:translateY(0);}
+  .hole.hit .mole{background:radial-gradient(circle at 35% 30%,#a3e635,#3f6212);}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:10px 30px;border-radius:10px;cursor:pointer;font-size:15px;}
+</style>
+</head>
+<body>
+<h1>🔨 霓虹打地鼠</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>时间 <b id="time">30</b>s</span></div>
+<div id="grid"></div>
+<button id="btnStart">开始游戏（30 秒）</button>
+<script>
+const gridEl=document.getElementById('grid');
+let score,time,timer,popTimer,playing=false;
+const holes=[];
+
+for(let i=0;i<9;i++){
+  const h=document.createElement('div');h.className='hole';
+  h.innerHTML='<div class="mole">🐹</div>';
+  h.addEventListener('pointerdown',()=>hit(i));
+  gridEl.appendChild(h);holes.push(h);
+}
+function start(){
+  score=0;time=30;playing=true;
+  document.getElementById('score').textContent=0;
+  document.getElementById('time').textContent=time;
+  document.getElementById('btnStart').style.display='none';
+  timer=setInterval(()=>{
+    time--;document.getElementById('time').textContent=time;
+    if(time<=0)end();
+  },1000);
+  pop();
+}
+function pop(){
+  if(!playing)return;
+  const i=Math.random()*9|0;
+  const h=holes[i];
+  if(!h.classList.contains('up')){
+    h.classList.add('up');
+    setTimeout(()=>h.classList.remove('up'),500+Math.random()*500);
+  }
+  popTimer=setTimeout(pop,350+Math.random()*450);
+}
+function hit(i){
+  if(!playing)return;
+  const h=holes[i];
+  if(h.classList.contains('up')&&!h.classList.contains('hit')){
+    h.classList.add('hit');
+    score+=10;document.getElementById('score').textContent=score;
+    setTimeout(()=>h.classList.remove('up','hit'),150);
+  }
+}
+function end(){
+  playing=false;clearInterval(timer);clearTimeout(popTimer);
+  holes.forEach(h=>h.classList.remove('up'));
+  ArcadeBridge.submitScore(score);
+  const b=document.getElementById('btnStart');
+  b.style.display='';
+  b.textContent=`🎮 时间到！得分 ${score} · 再来一局`;
+}
+document.getElementById('btnStart').addEventListener('click',start);
+</script>
+</body>
+</html>

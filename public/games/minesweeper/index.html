@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹扫雷</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(10,34px)/repeat(10,34px);gap:3px;background:#1a1633;padding:8px;border-radius:12px;}
+  .cell{background:#2b2560;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;user-select:none;transition:background .1s;}
+  .cell:hover{background:#3a3178;}
+  .cell.rev{background:#181430;cursor:default;border:1px solid rgba(148,163,255,.12);}
+  .cell.flag{background:#3a3178;}
+  .cell.boom{background:#7f1d1d;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>💣 霓虹扫雷</h1>
+<div class="hud"><span>剩余雷数 <b id="mines">15</b></span><span>时间 <b id="time">0</b>s</span></div>
+<div id="grid"></div>
+<button id="btnRestart">重新开始</button>
+<p class="tip">点击翻开 · 右键 / 长按 插旗 · 翻开所有非雷格子即胜利<br>得分 = 剩余时间×5 + 300（踩雷则按已翻开格数计分）</p>
+<script>
+const W=10,H=10,MINES=15;
+const gridEl=document.getElementById('grid');
+let cells,mine,rev,flag,started,dead,over,timer,seconds;
+
+function newGame(){
+  gridEl.innerHTML='';cells=[];rev=0;flag=0;started=false;dead=false;over=false;seconds=0;
+  clearInterval(timer);document.getElementById('time').textContent=0;
+  document.getElementById('mines').textContent=MINES;
+  document.getElementById('btnRestart').textContent='重新开始';
+  mine=Array(W*H).fill(false);
+  let placed=0;
+  while(placed<MINES){const i=Math.random()*W*H|0;if(!mine[i]){mine[i]=true;placed++;}}
+  for(let i=0;i<W*H;i++){
+    const c=document.createElement('div');c.className='cell';c.dataset.i=i;
+    c.addEventListener('click',()=>reveal(i));
+    c.addEventListener('contextmenu',e=>{e.preventDefault();toggleFlag(i);});
+    let lp;
+    c.addEventListener('touchstart',()=>{lp=setTimeout(()=>toggleFlag(i),450);},{passive:true});
+    c.addEventListener('touchend',()=>clearTimeout(lp),{passive:true});
+    gridEl.appendChild(c);cells.push(c);
+  }
+}
+function neighbors(i){
+  const x=i%W,y=i/W|0,out=[];
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=x+dx,ny=y+dy;
+    if((dx||dy)&&nx>=0&&nx<W&&ny>=0&&ny<H)out.push(ny*W+nx);
+  }
+  return out;
+}
+function countAround(i){return neighbors(i).filter(n=>mine[n]).length;}
+function startTimer(){
+  started=true;
+  timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
+}
+function toggleFlag(i){
+  if(dead||revFlagCheck(i))return;
+  const c=cells[i];
+  if(c.classList.contains('rev'))return;
+  if(c.classList.contains('flag')){c.classList.remove('flag');c.textContent='';flag--;}
+  else{c.classList.add('flag');c.textContent='🚩';flag++;}
+  document.getElementById('mines').textContent=MINES-flag;
+}
+function revFlagCheck(){return dead;}
+function reveal(i){
+  if(dead||cells[i].classList.contains('rev'))return;
+  if(!started)startTimer();
+  if(cells[i].classList.contains('flag'))return;
+  if(mine[i])return boom(i);
+  flood(i);
+  if(rev===W*H-MINES)win();
+}
+function flood(i){
+  const c=cells[i];
+  if(c.classList.contains('rev'))return;
+  c.classList.add('rev');
+  const n=countAround(i);
+  const COLORS=['','#60a5fa','#a3e635','#facc15','#fb923c','#f472b6','#a855f7','#22d3ee','#f87171'];
+  if(n){c.textContent=n;c.style.color=COLORS[n];}
+  rev++;
+  if(!n)neighbors(i).forEach(flood);
+}
+function boom(i){
+  dead=true;clearInterval(timer);
+  cells[i].classList.add('boom');cells[i].textContent='💥';
+  mine.forEach((m,j)=>{if(m){cells[j].textContent='💣';cells[j].classList.add('rev');}});
+  ArcadeBridge.submitScore(rev);
+  document.getElementById('btnRestart').textContent=`💥 踩雷了！（得分 ${rev}）· 点此重来`;
+}
+function win(){
+  over=true;clearInterval(timer);
+  const score=Math.max(50,1000-seconds*5)+300;
+  cells.forEach((c,j)=>{if(mine[j]){c.textContent='🚩';}});
+  ArcadeBridge.submitScore(score);
+  document.getElementById('btnRestart').textContent=`🏆 扫雷成功！得分 ${score} · 点此再来`;
+}
+document.getElementById('btnRestart').addEventListener('click',newGame);
+newGame();
+</script>
+</body>
+</html>

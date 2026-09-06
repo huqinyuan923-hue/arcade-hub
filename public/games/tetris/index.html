@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹俄罗斯方块</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:16px;min-height:100vh;padding:10px;flex-wrap:wrap;}
+  .left{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:14px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(34,211,238,.3);border-radius:10px;max-width:88vw;}
+  .side{display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .pad{display:grid;grid-template:repeat(3,48px)/repeat(3,48px);gap:5px;}
+  .pad button{background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;border-radius:10px;font-size:18px;cursor:pointer;}
+  button.restart{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 20px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="left">
+  <h1>🧱 霓虹俄罗斯方块</h1>
+  <div class="hud"><span>分数 <b id="score">0</b></span><span>行数 <b id="lines">0</b></span><span>等级 <b id="level">1</b></span></div>
+  <canvas id="cv" width="240" height="480"></canvas>
+  <button class="restart" id="btnRestart">重新开始</button>
+</div>
+<div class="side">
+  <div class="pad">
+    <span></span><button data-a="rot">⟳</button><span></span>
+    <button data-a="left">◀</button><button data-a="down">▼</button><button data-a="right">▶</button>
+    <span></span><button data-a="drop">⤓</button><span></span>
+  </div>
+  <p style="color:#64748b;font-size:12px">←→移动 · ↑旋转 · ↓加速 · 空格直落</p>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=10,H=20,S=24;
+const PIECES=[
+  {c:'#22d3ee',m:[[1,1,1,1]]},
+  {c:'#facc15',m:[[1,1],[1,1]]},
+  {c:'#a855f7',m:[[0,1,0],[1,1,1]]},
+  {c:'#a3e635',m:[[0,1,1],[1,1,0]]},
+  {c:'#fb923c',m:[[1,1,0],[0,1,1]]},
+  {c:'#f472b6',m:[[1,0,0],[1,1,1]]},
+  {c:'#60a5fa',m:[[0,0,1],[1,1,1]]},
+];
+let grid,piece,score,lines,level,over,timer,speed;
+
+function newGame(){
+  grid=Array.from({length:H},()=>Array(W).fill(null));
+  score=0;lines=0;level=1;over=false;speed=700;
+  document.getElementById('btnRestart').textContent='重新开始';
+  spawn();updateHud();
+  clearInterval(timer);timer=setInterval(tick,speed);
+}
+function spawn(){
+  const p=PIECES[Math.random()*PIECES.length|0];
+  piece={c:p.c,m:p.m.map(r=>[...r]),x:3,y:0};
+  if(collide(piece.x,piece.y,piece.m)){gameOver();}
+}
+function collide(x,y,m){
+  for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){
+    if(!m[r][c])continue;
+    const nx=x+c,ny=y+r;
+    if(nx<0||nx>=W||ny>=H)return true;
+    if(ny>=0&&grid[ny][nx])return true;
+  }
+  return false;
+}
+function tick(){
+  if(over)return;
+  if(!collide(piece.x,piece.y+1,piece.m))piece.y++;
+  else lock();
+  draw();
+}
+function lock(){
+  piece.m.forEach((row,r)=>row.forEach((v,c)=>{
+    if(v&&piece.y+r>=0)grid[piece.y+r][piece.x+c]=piece.c;
+  }));
+  let cleared=0;
+  for(let r=H-1;r>=0;r--){
+    if(grid[r].every(Boolean)){grid.splice(r,1);grid.unshift(Array(W).fill(null));cleared++;r++;}
+  }
+  if(cleared){
+    lines+=cleared;
+    score+=[0,100,300,500,800][cleared]*level;
+    level=1+Math.floor(lines/10);
+    clearInterval(timer);
+    speed=Math.max(120,700-(level-1)*60);
+    timer=setInterval(tick,speed);
+    updateHud();
+  }
+  spawn();draw();
+}
+function rotate(){
+  const m=piece.m[0].map((_,i)=>piece.m.map(r=>r[i]).reverse());
+  if(!collide(piece.x,piece.y,m))piece.m=m;
+  draw();
+}
+function hardDrop(){
+  while(!collide(piece.x,piece.y+1,piece.m))piece.y++;
+  lock();draw();
+}
+function move(dx){if(!collide(piece.x+dx,piece.y,piece.m)){piece.x+=dx;draw();}}
+function gameOver(){
+  over=true;clearInterval(timer);
+  ArcadeBridge.submitScore(score);
+  document.getElementById('btnRestart').textContent=`💀 游戏结束（${score}分）· 点此重来`;
+}
+function updateHud(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('lines').textContent=lines;
+  document.getElementById('level').textContent=level;
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  grid.forEach((row,r)=>row.forEach((c,x)=>{
+    if(c){ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fillRect(x*S+1,r*S+1,S-2,S-2);}
+  }));
+  if(!over)piece.m.forEach((row,r)=>row.forEach((v,c)=>{
+    if(v&&piece.y+r>=0){
+      ctx.fillStyle=piece.c;ctx.shadowColor=piece.c;ctx.shadowBlur=10;
+      ctx.fillRect((piece.x+c)*S+1,(piece.y+r)*S+1,S-2,S-2);
+    }
+  }));
+  ctx.shadowBlur=0;
+}
+addEventListener('keydown',e=>{
+  if(over&&e.key==='Enter'){newGame();return;}
+  const k=e.key;
+  if(k==='ArrowLeft'){e.preventDefault();move(-1);}
+  else if(k==='ArrowRight'){e.preventDefault();move(1);}
+  else if(k==='ArrowDown'){e.preventDefault();tick();}
+  else if(k==='ArrowUp'){e.preventDefault();rotate();}
+  else if(k===' '){e.preventDefault();hardDrop();}
+});
+document.querySelectorAll('.pad button').forEach(b=>b.addEventListener('click',()=>{
+  const a=b.dataset.a;
+  if(over)return;
+  if(a==='left')move(-1);else if(a==='right')move(1);else if(a==='down')tick();
+  else if(a==='rot')rotate();else if(a==='drop')hardDrop();
+}));
+document.getElementById('btnRestart').addEventListener('click',newGame);
+newGame();
+</script>
+</body>
+</html>

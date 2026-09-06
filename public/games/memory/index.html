@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>记忆翻牌</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(4,70px)/repeat(4,70px);gap:8px;}
+  .card3d{perspective:600px;cursor:pointer;}
+  .inner{position:relative;width:100%;height:100%;transition:transform .35s;transform-style:preserve-3d;}
+  .card3d.open .inner,.card3d.done .inner{transform:rotateY(180deg);}
+  .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:10px;backface-visibility:hidden;font-size:30px;}
+  .back{background:linear-gradient(135deg,#312e81,#7c3aed);border:1px solid rgba(167,139,250,.5);}
+  .front{background:#181430;border:1px solid rgba(34,211,238,.4);transform:rotateY(180deg);}
+  .card3d.done .front{border-color:#a3e635;box-shadow:0 0 12px rgba(163,230,53,.4);}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🃏 记忆翻牌</h1>
+<div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span></div>
+<div id="grid"></div>
+<p class="tip">翻开全部 8 对即获胜 · 步数越少、速度越快，得分越高</p>
+<script>
+const EMOJI=['🎮','🚀','👾','🕹️','💎','⚡','🔥','🌙'];
+const gridEl=document.getElementById('grid');
+let cards,open,matched,moves,seconds,timer,lock;
+
+function newGame(){
+  const deck=[...EMOJI,...EMOJI].sort(()=>Math.random()-.5);
+  gridEl.innerHTML='';cards=[];open=[];matched=0;moves=0;seconds=0;lock=false;
+  clearInterval(timer);
+  document.getElementById('moves').textContent=0;
+  document.getElementById('time').textContent=0;
+  deck.forEach(e=>{
+    const el=document.createElement('div');el.className='card3d';
+    el.innerHTML=`<div class="inner"><div class="face back">❓</div><div class="face front">${e}</div></div>`;
+    el.dataset.emoji=e;
+    el.addEventListener('click',()=>tap(el));
+    gridEl.appendChild(el);cards.push(el);
+  });
+}
+function tap(el){
+  if(lock||el.classList.contains('open')||el.classList.contains('done'))return;
+  if(moves===0&&!timer)timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
+  el.classList.add('open');open.push(el);
+  if(open.length===2){
+    moves++;document.getElementById('moves').textContent=moves;
+    if(open[0].dataset.emoji===open[1].dataset.emoji){
+      open.forEach(x=>{x.classList.remove('open');x.classList.add('done');});
+      open=[];matched++;
+      if(matched===8)finish();
+    }else{
+      lock=true;
+      setTimeout(()=>{open.forEach(x=>x.classList.remove('open'));open=[];lock=false;},700);
+    }
+  }
+}
+function finish(){
+  clearInterval(timer);
+  const score=Math.max(100,1000-(moves-8)*20-seconds*2);
+  ArcadeBridge.submitScore(score);
+  const b=document.createElement('button');
+  b.textContent=`🏆 完成！${moves} 步 / ${seconds}s · 得分 ${score} · 点击再来`;
+  b.onclick=newGame;
+  document.body.appendChild(b);
+}
+newGame();
+</script>
+</body>
+</html>

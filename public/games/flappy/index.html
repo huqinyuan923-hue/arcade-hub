@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹小鸟</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(34,211,238,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🐤 霓虹小鸟</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="420" height="480"></canvas>
+<p class="tip">点击屏幕 / 空格 扇翅膀 · 穿过管道 +1 分 · 碰到管道或地面结束</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let bird,pipes,score,dead,started,raf,frame;
+let hi=+(localStorage.getItem('aflappyhi')||0);
+document.getElementById('hi').textContent=hi;
+const G=0.45,FLAP=-8,SPEED=2.6,GAP=140;
+
+function newGame(){
+  bird={x:100,y:200,vy:0};
+  pipes=[];score=0;dead=false;started=false;frame=0;
+  document.getElementById('score').textContent=0;
+  cancelAnimationFrame(raf);loop();
+  drawStart();
+}
+function flap(){
+  if(dead)return;
+  if(!started)started=true;
+  bird.vy=FLAP;
+}
+function loop(){
+  if(dead)return;
+  raf=requestAnimationFrame(loop);
+  if(started)update();
+  draw();
+}
+function update(){
+  frame++;
+  bird.vy+=G;bird.y+=bird.vy;
+  if(frame%95===0){
+    pipes.push({x:cv.width,top:60+Math.random()*(cv.height-GAP-160),passed:false});
+  }
+  pipes.forEach(p=>p.x-=SPEED);
+  pipes=pipes.filter(p=>p.x>-60);
+  for(const p of pipes){
+    if(!p.passed&&p.x+52<bird.x){p.passed=true;score++;document.getElementById('score').textContent=score;}
+    const inX=bird.x+12>p.x&&bird.x-12<p.x+52;
+    const inY=bird.y-12<p.top||bird.y+12>p.top+GAP;
+    if(inX&&inY)return die();
+  }
+  if(bird.y>cv.height-12||bird.y<0)return die();
+}
+function die(){
+  dead=true;
+  if(score>hi){hi=score;localStorage.setItem('aflappyhi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  ctx.fillStyle='rgba(7,5,16,.8)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#f472b6';ctx.font='bold 26px system-ui';ctx.textAlign='center';
+  ctx.fillText(`游戏结束：${score} 分`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('点击 / 空格 再来一局',cv.width/2,cv.height/2+20);
+  const restart=e=>{if(dead){e.preventDefault();dead=false;removeEventListener('keydown',keyRestart);cv.removeEventListener('click',clickRestart);newGame();}};
+  const keyRestart=e=>{if(e.key===' ')restart(e);};
+  const clickRestart=e=>restart(e);
+  addEventListener('keydown',keyRestart);
+  cv.addEventListener('click',clickRestart);
+}
+function drawStart(){
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('点击 / 空格 开始',cv.width/2,cv.height/2+40);
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  // 星星
+  ctx.fillStyle='rgba(148,163,255,.25)';
+  for(let i=0;i<24;i++){const x=(i*97)%cv.width,y=(i*57)%cv.height;ctx.fillRect(x,y,2,2);}
+  // 管道
+  pipes.forEach(p=>{
+    ctx.fillStyle='#7c3aed';ctx.shadowColor='#a855f7';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.roundRect(p.x,0,52,p.top,6);ctx.fill();
+    ctx.beginPath();ctx.roundRect(p.x,p.top+GAP,52,cv.height-p.top-GAP,6);ctx.fill();
+  });
+  // 地面
+  ctx.fillStyle='#1a1633';ctx.fillRect(0,cv.height-8,cv.width,8);
+  // 小鸟
+  ctx.fillStyle='#facc15';ctx.shadowColor='#facc15';ctx.shadowBlur=14;
+  ctx.beginPath();ctx.arc(bird.x,bird.y,12,0,7);ctx.fill();
+  ctx.fillStyle='#0d0b1e';ctx.shadowBlur=0;
+  ctx.beginPath();ctx.arc(bird.x+5,bird.y-3,2.5,0,7);ctx.fill();
+}
+addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();flap();}});
+cv.addEventListener('mousedown',flap);
+cv.addEventListener('touchstart',e=>{e.preventDefault();flap();},{passive:false});
+newGame();
+</script>
+</body>
+</html>

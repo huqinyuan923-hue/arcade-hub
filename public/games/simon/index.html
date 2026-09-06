@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹记忆序列</title>
+<script src="/games/_bridge.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #pads{display:grid;grid-template:repeat(2,110px)/repeat(2,110px);gap:14px;border-radius:50%;padding:16px;background:#1a1633;}
+  .pad{border-radius:14px;opacity:.35;cursor:pointer;transition:opacity .12s, box-shadow .12s;}
+  .pad.c0{background:#22d3ee;}.pad.c1{background:#f472b6;}.pad.c2{background:#a3e635;}.pad.c3{background:#facc15;}
+  .pad.lit{opacity:1;box-shadow:0 0 24px currentColor;}
+  #status{font-size:15px;color:#94a3b8;min-height:22px;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:10px 30px;border-radius:10px;cursor:pointer;font-size:15px;}
+</style>
+</head>
+<body>
+<h1>🎯 霓虹记忆序列</h1>
+<p class="hud">关卡 <b id="level">0</b></p>
+<div id="pads">
+  <div class="pad c0" data-i="0"></div><div class="pad c1" data-i="1"></div>
+  <div class="pad c2" data-i="2"></div><div class="pad c3" data-i="3"></div>
+</div>
+<p id="status">点击开始，跟随霓虹灯的顺序重复点击</p>
+<button id="btnStart">开始挑战</button>
+<script>
+const pads=document.querySelectorAll('.pad');
+const statusEl=document.getElementById('status');
+let seq,pos,playing,level;
+
+// WebAudio 音效
+let actx;
+function beep(i,dur=0.18){
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();
+    const freqs=[329.6,392,523.3,659.3];
+    o.frequency.value=freqs[i];o.type='sine';
+    g.gain.setValueAtTime(0.12,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+    o.connect(g);g.connect(actx.destination);
+    o.start();o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function light(i,dur=380){
+  pads[i].classList.add('lit');
+  beep(i);
+  setTimeout(()=>pads[i].classList.remove('lit'),dur);
+}
+function start(){
+  seq=[];level=0;playing=true;
+  document.getElementById('btnStart').style.display='none';
+  nextLevel();
+}
+function nextLevel(){
+  level++;document.getElementById('level').textContent=level;
+  seq.push(Math.random()*4|0);
+  pos=0;
+  statusEl.textContent='👀 仔细看…';
+  seq.forEach((s,idx)=>setTimeout(()=>light(s),600+idx*560));
+  setTimeout(()=>{statusEl.textContent='🖐️ 轮到你了！';},600+seq.length*560);
+}
+pads.forEach(p=>p.addEventListener('pointerdown',()=>{
+  if(!playing)return;
+  const i=+p.dataset.i;
+  light(i,200);
+  if(i===seq[pos]){
+    pos++;
+    if(pos===seq.length){
+      statusEl.textContent='✅ 正确！下一轮…';
+      setTimeout(nextLevel,900);
+    }
+  }else{
+    playing=false;
+    const score=level*10;
+    statusEl.textContent=`❌ 错了！坚持到第 ${level} 关 · 得分 ${score}`;
+    beep(0,0.5);
+    ArcadeBridge.submitScore(score);
+    const b=document.getElementById('btnStart');
+    b.style.display='';
+    b.textContent='再来一局';
+  }
+}));
+document.getElementById('btnStart').addEventListener('click',start);
+</script>
+</body>
+</html>
