@@ -67,6 +67,14 @@ pnpm dev                     # http://localhost:3000
 
 ## 目录结构
 
+## 运维备注（重要，勿改）
+
+- **Vercel 项目设置里的 `framework` 必须是 `nextjs`。** 该字段若为空，构建产物不会包含 Next.js 的页面与 API 函数，线上只会剩下 `public/` 下的静态文件，其余全部路由都会返回平台级 404（`X-Vercel-Error: NOT_FOUND`）。此坑已踩过一次。
+- 生产别名：`arcade-hub-nu.vercel.app`、`arcade-hub-adc-akeyuan.vercel.app`
+- 推送 `main` 分支由 Vercel Git 集成自动部署，无需手动 `vercel --prod`。
+
+## 目录结构
+
 ```
 app/                 页面与 API 路由（App Router）
   admin/             管理后台（middleware 保护）
