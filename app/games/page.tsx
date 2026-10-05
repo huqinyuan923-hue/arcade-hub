@@ -5,9 +5,18 @@ import { getCategories, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "全部游戏",
-};
+// 搜索结果页不收录，避免生成大量低质搜索 URL
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q } = await searchParams;
+  return {
+    title: q ? `“${q}”的搜索结果` : "全部游戏",
+    robots: q ? { index: false, follow: true } : undefined,
+  };
+}
 
 const SORTS = [
   { key: "hot", label: "最热" },
@@ -29,7 +38,7 @@ export default async function GamesPage({
     | "rating";
 
   const [games, categories] = await Promise.all([
-    listGames({ q: q || undefined, category: category || undefined, sort, limit: 60 }),
+    listGames({ q: q || undefined, category: category || undefined, sort, limit: 200 }),
     getCategories(),
   ]);
 

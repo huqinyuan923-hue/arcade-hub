@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, asc, desc, eq, getTableColumns, ilike, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { favorites, games, ratings, scores, users } from "@/db/schema";
@@ -68,7 +69,8 @@ export async function getFeaturedGames(limit = 5): Promise<GameWithRating[]> {
     .limit(limit);
 }
 
-export async function getGameBySlug(slug: string): Promise<GameWithRating | null> {
+// 同一次渲染中 metadata 与页面各查一次，用 cache() 去重为一次 DB 查询
+export const getGameBySlug = cache(async function getGameBySlug(slug: string): Promise<GameWithRating | null> {
   const db = getDb();
   const rows = await db
     .select(baseSelect)
@@ -78,7 +80,7 @@ export async function getGameBySlug(slug: string): Promise<GameWithRating | null
     .groupBy(games.id)
     .limit(1);
   return rows[0] ?? null;
-}
+});
 
 export async function getRelatedGames(game: Game, limit = 6): Promise<GameWithRating[]> {
   const db = getDb();

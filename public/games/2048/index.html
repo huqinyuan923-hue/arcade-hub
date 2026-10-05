@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>2048</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; touch-action:none; }
   body { background:#0d0b1e; color:#e7e6f5; font-family:system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; gap:12px; padding:12px; }
@@ -22,17 +23,17 @@
 </head>
 <body>
 <h1>2048</h1>
-<div class="hud"><span>分数 <b id="score">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>最高 <b id="hi">0</b></span><button class="undo" style="background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;border-radius:8px;padding:2px 10px;cursor:pointer;font-size:12px;">↩ 撤销</button></div>
 <div id="board"><div class="grid" id="grid"></div></div>
 <p style="color:#64748b;font-size:12px">方向键 / WASD / 滑动屏幕 移动方块 · 相同数字合并</p>
 <script>
 const board=document.getElementById('board'),grid=document.getElementById('grid');
 for(let i=0;i<16;i++){const c=document.createElement('div');c.className='cell';grid.appendChild(c);}
-let tiles,score,hi=+(localStorage.getItem('a2048hi')||0),over=false,anim=[];
+let tiles,score,hi=+(localStorage.getItem('a2048hi')||0),over=false,anim=[],prev=null;
 const COLORS={2:'#3d365f',4:'#4a3f78',8:'#7c3aed',16:'#a855f7',32:'#d946ef',64:'#f472b6',128:'#fb7185',256:'#fb923c',512:'#facc15',1024:'#a3e635',2048:'#22d3ee'};
 document.getElementById('hi').textContent=hi;
 
-function newGame(){tiles=Array(16).fill(0);score=0;over=false;document.querySelector('.over')?.remove();spawn();spawn();draw();}
+function newGame(){tiles=Array(16).fill(0);score=0;over=false;prev=null;document.querySelector('.over')?.remove();spawn();spawn();draw();ArcadeAudio.bgm('chill');}
 function spawn(){const empty=tiles.map((v,i)=>v?-1:i).filter(i=>i>=0);if(!empty.length)return;tiles[empty[Math.random()*empty.length|0]]=Math.random()<0.9?2:4;}
 function pos(i){const b=board.clientWidth-16,g=8,s=(b-g*3)/4;const x=i%4,y=i/4|0;return{x:8+x*(s+g),y:8+y*(s+g),size:s};}
 function draw(){
@@ -62,17 +63,28 @@ function move(dir){
   lines.forEach(line=>{
     let vals=line.map(i=>tiles[i]).filter(Boolean);
     for(let i=0;i<vals.length-1;i++){
-      if(vals[i]===vals[i+1]){vals[i]*=2;score+=vals[i];vals.splice(i+1,1);}
+      if(vals[i]===vals[i+1]){vals[i]*=2;score+=vals[i];vals.splice(i+1,1);ArcadeAudio.sfx(vals[i]>=128?'levelup':'merge');}
     }
     while(vals.length<4)vals.push(0);
     line.forEach((i,k)=>tiles[i]=vals[k]);
   });
   if(tiles.join(',')!==before){
+    ArcadeAudio.sfx('move');
+    // 存档供撤销（不含本步 spawn）
+    prev={tiles:tiles.slice(),score,overTile:null};
     spawn();draw();
+    if(tiles.includes(2048))ArcadeAudio.sfx('win');
     if(score>hi){hi=score;localStorage.setItem('a2048hi',hi);document.getElementById('hi').textContent=hi;}
     if(!canMove())gameOver();
   }
 }
+document.querySelector('.undo').addEventListener('click',()=>{
+  if(!prev)return;
+  ArcadeAudio.sfx('flip');
+  tiles=prev.tiles;score=prev.score;over=false;
+  document.querySelector('.over')?.remove();
+  prev=null;draw();
+});
 function canMove(){
   if(tiles.includes(0))return true;
   for(let r=0;r<4;r++)for(let c=0;c<4;c++){
@@ -84,6 +96,8 @@ function canMove(){
 }
 function gameOver(){
   over=true;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('over');
   ArcadeBridge.submitScore(score);
   const o=document.createElement('div');o.className='over';
   o.innerHTML=`<p>游戏结束！</p><div style="color:#facc15;font-size:24px;font-weight:800">${score}</div><button onclick="newGame()">再来一局</button>`;

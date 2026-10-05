@@ -1,17 +1,26 @@
 import Link from "next/link";
+import { sum } from "drizzle-orm";
 import GameCard, { formatPlays } from "@/components/GameCard";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
+import { getDb } from "@/db";
+import { games } from "@/db/schema";
 import { getCategories, getFeaturedGames, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [featured, newest, hottest, categories] = await Promise.all([
+  const db = getDb();
+  const [featured, newest, hottest, categories, totals] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
     listGames({ sort: "hot", limit: 8 }),
     getCategories(),
+    // 站点累计游玩数：全表 SUM，而不是只算最热 8 款
+    db
+      .select({ total: sum(games.plays).mapWith(Number) })
+      .from(games),
   ]);
+  const totalPlays = totals[0]?.total ?? 0;
 
   return (
     <div className="flex flex-col gap-10">
@@ -94,7 +103,7 @@ export default async function HomePage() {
       <section className="card p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-bold text-neon-cyan neon-text">
-            站内游戏已累计被游玩 {formatPlays(hottest.reduce((s, g) => s + g.plays, 0))} 次
+            站内 {categories.length} 个分类 · {totalPlays > 0 ? `已累计被游玩 ${formatPlays(totalPlays)} 次` : "等你来开第一局"}
           </h3>
           <p className="text-sm text-slate-400 mt-1">注册账号，把你的名字留在排行榜上。</p>
         </div>

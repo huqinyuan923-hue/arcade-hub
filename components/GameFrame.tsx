@@ -38,6 +38,19 @@ export default function GameFrame({
     fetch(`/api/games/${slug}/play`, { method: "POST" }).catch(() => {});
   }, [slug]);
 
+  // 键盘适配：聚焦 iframe 后方向键才会进游戏（否则只会滚动页面）
+  // 载入后自动聚焦；鼠标移入/点击游戏区时重新聚焦
+  const focusFrame = () => frameRef.current?.focus();
+  useEffect(() => {
+    const t = window.setTimeout(focusFrame, 300);
+    return () => window.clearTimeout(t);
+  }, [frameKey]);
+  useEffect(() => {
+    const onFocus = () => frameRef.current?.focus();
+    document.addEventListener("fullscreenchange", onFocus);
+    return () => document.removeEventListener("fullscreenchange", onFocus);
+  }, []);
+
   // 接收站内游戏上报的成绩
   useEffect(() => {
     async function onMessage(e: MessageEvent) {
@@ -80,13 +93,18 @@ export default function GameFrame({
 
   return (
     <div className="card overflow-hidden relative scanlines">
-      <div ref={wrapRef} className="relative w-full aspect-[4/3] sm:aspect-video bg-black">
+      <div
+        ref={wrapRef}
+        className="relative w-full aspect-[4/3] sm:aspect-video bg-black"
+        onMouseEnter={focusFrame}
+        onMouseDown={focusFrame}
+      >
         <iframe
           key={frameKey}
           ref={frameRef}
           src={src}
           title={title}
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full outline-none"
           sandbox={
             sandbox ??
             "allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-forms"
@@ -104,19 +122,24 @@ export default function GameFrame({
                   : "bg-cyan-500/20 border-cyan-400/50 text-cyan-100"
             }`}
           >
-            {toast.kind === "warn" ? (
-              <>
-                {toast.text}{" "}
-                <Link
-                  href={`/login?next=${encodeURIComponent(`/game/${slug}`)}`}
-                  className="underline"
-                >
-                  去登录
-                </Link>
-              </>
-            ) : (
-              toast.text
-            )}
+        {toast.kind === "warn" ? (
+          <>
+            {toast.text}{" "}
+            <Link
+              href={`/login?next=${encodeURIComponent(`/game/${slug}`)}`}
+              className="underline"
+            >
+              去登录
+            </Link>
+          </>
+        ) : (
+          <>
+            {toast.text}{" "}
+            <Link href="/leaderboard" className="underline font-medium">
+              看排行榜 →
+            </Link>
+          </>
+        )}
           </div>
         )}
       </div>

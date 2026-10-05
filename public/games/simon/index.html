@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>霓虹记忆序列</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
   body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
@@ -33,19 +34,10 @@ const pads=document.querySelectorAll('.pad');
 const statusEl=document.getElementById('status');
 let seq,pos,playing,level;
 
-// WebAudio 音效
-let actx;
+// 四色音（走共享音频引擎，受静音按钮控制）
+const FREQS=[329.6,392,523.3,659.3];
 function beep(i,dur=0.18){
-  try{
-    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-    const o=actx.createOscillator(),g=actx.createGain();
-    const freqs=[329.6,392,523.3,659.3];
-    o.frequency.value=freqs[i];o.type='sine';
-    g.gain.setValueAtTime(0.12,actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
-    o.connect(g);g.connect(actx.destination);
-    o.start();o.stop(actx.currentTime+dur);
-  }catch(e){}
+  ArcadeAudio.tone(FREQS[i],dur,'sine',0.25);
 }
 function light(i,dur=380){
   pads[i].classList.add('lit');
@@ -73,13 +65,15 @@ pads.forEach(p=>p.addEventListener('pointerdown',()=>{
     pos++;
     if(pos===seq.length){
       statusEl.textContent='✅ 正确！下一轮…';
+      ArcadeAudio.sfx('levelup');
       setTimeout(nextLevel,900);
     }
   }else{
     playing=false;
     const score=level*10;
     statusEl.textContent=`❌ 错了！坚持到第 ${level} 关 · 得分 ${score}`;
-    beep(0,0.5);
+    ArcadeAudio.stopBgm();
+    ArcadeAudio.sfx('over');
     ArcadeBridge.submitScore(score);
     const b=document.getElementById('btnStart');
     b.style.display='';

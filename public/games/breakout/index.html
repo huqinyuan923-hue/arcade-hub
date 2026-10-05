@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>霓虹打砖块</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
@@ -26,10 +27,11 @@
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const ROWS=5,COLS=8,BW=52,BH=16,GAP=6,TOP=40;
 const COLORS=['#f472b6','#a855f7','#7c3aed','#2563eb','#22d3ee'];
-let paddle,ball,bricks,score,lives,running,ended,raf;
+let paddle,ball,bricks,score,lives,running,ended,raf,paused=false;
 
 function newGame(){
   score=0;lives=3;ended=false;
+  ArcadeAudio.bgm('bright');
   document.getElementById('btnRestart').textContent='重新开始';
   resetLevel();
   bindOnce();
@@ -39,7 +41,7 @@ function resetLevel(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
     bricks.push({x:GAP+c*(BW+GAP),y:TOP+r*(BH+GAP),alive:true,color:COLORS[r]});
   paddle={x:cv.width/2-40,w:80};
-  ball={x:cv.width/2,y:cv.height-30,vx:3.2*(Math.random()>.5?1:-1),vy:-4.2,r:6};
+  ball={x:cv.width/2,y:cv.height-30,vx:2.1*(Math.random()>.5?1:-1),vy:-2.8,r:6};
   running=false;
   hud();draw();
   ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
@@ -53,7 +55,13 @@ function launch(){
 }
 function loop(){
   if(!running||ended)return;
-  update();draw();
+  if(!paused)update();
+  draw();
+  if(paused){
+    ctx.fillStyle='rgba(7,5,16,.6)';ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#22d3ee';ctx.font='bold 20px system-ui';ctx.textAlign='center';
+    ctx.fillText('⏸ 已暂停 · 按 P 继续',cv.width/2,cv.height/2);
+  }
   raf=requestAnimationFrame(loop);
 }
 function update(){
@@ -63,11 +71,13 @@ function update(){
   // 挡板
   if(ball.y+ball.r>=cv.height-16&&ball.y+ball.r<=cv.height-6&&ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.vy>0){
     const hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
-    ball.vx=hit*4.5;ball.vy=-Math.abs(ball.vy);
+    ball.vx=Math.max(-3,Math.min(3,hit*3));ball.vy=-Math.abs(ball.vy);
+    ArcadeAudio.sfx('hit');
   }
   // 掉落
   if(ball.y>cv.height+10){
     lives--;hud();
+    ArcadeAudio.sfx('miss');
     if(lives<=0)return die();
     running=false;resetPositions();
     return;
@@ -77,6 +87,7 @@ function update(){
     if(!b.alive)continue;
     if(ball.x>b.x-ball.r&&ball.x<b.x+BW+ball.r&&ball.y>b.y-ball.r&&ball.y<b.y+BH+ball.r){
       b.alive=false;score+=10;hud();
+      ArcadeAudio.sfx('brick');
       const fromSide=ball.x<b.x||ball.x>b.x+BW;
       if(fromSide)ball.vx*=-1;else ball.vy*=-1;
       if(bricks.every(x=>!x.alive)){score+=500;hud();return win();}
@@ -85,18 +96,22 @@ function update(){
   }
 }
 function resetPositions(){
-  ball.x=paddle.x+paddle.w/2;ball.y=cv.height-30;ball.vy=-4.2;ball.vx=3.2*(Math.random()>.5?1:-1);
+  ball.x=paddle.x+paddle.w/2;ball.y=cv.height-30;ball.vy=-2.8;ball.vx=2.1*(Math.random()>.5?1:-1);
   draw();
   ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
   ctx.fillText('点击 / 按空格 继续球局',cv.width/2,cv.height/2+30);
 }
 function die(){
   ended=true;running=false;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('over');
   ArcadeBridge.submitScore(score);
   document.getElementById('btnRestart').textContent=`💀 游戏结束（${score}分）· 点此重来`;
 }
 function win(){
   ended=true;running=false;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('win');
   ArcadeBridge.submitScore(score);
   document.getElementById('btnRestart').textContent=`🏆 通关！（${score}分）· 点此重来`;
 }
@@ -127,6 +142,7 @@ function bindOnce(){
   cv.addEventListener('click',launch);
   addEventListener('keydown',e=>{
     if(e.key===' '){e.preventDefault();launch();}
+    if((e.key==='p'||e.key==='P')&&running&&!ended)paused=!paused;
     if(e.key==='ArrowLeft')paddle.x=Math.max(0,paddle.x-24);
     if(e.key==='ArrowRight')paddle.x=Math.min(cv.width-paddle.w,paddle.x+24);
   });

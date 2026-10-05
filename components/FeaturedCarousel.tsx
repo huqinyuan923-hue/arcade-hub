@@ -6,18 +6,25 @@ import type { GameWithRating } from "@/lib/games";
 
 export default function FeaturedCarousel({ games }: { games: GameWithRating[] }) {
   const [idx, setIdx] = useState(0);
+  const [hover, setHover] = useState(false);
 
   useEffect(() => {
-    if (games.length < 2) return;
-    const t = window.setInterval(() => setIdx((i) => (i + 1) % games.length), 5000);
+    if (games.length < 2 || hover) return;
+    const t = window.setInterval(() => setIdx((i) => (i + 1) % games.length), 6000);
     return () => window.clearInterval(t);
-  }, [games.length]);
+  }, [games.length, hover]);
 
   if (!games.length) return null;
   const game = games[idx];
 
   return (
-    <div className="card overflow-hidden relative scanlines">
+    <div
+      className="card overflow-hidden relative scanlines"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+    >
       <div className="relative aspect-[16/7] sm:aspect-[21/8]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -49,6 +56,7 @@ export default function FeaturedCarousel({ games }: { games: GameWithRating[] })
               key={i}
               onClick={() => setIdx(i)}
               aria-label={`第 ${i + 1} 个`}
+              aria-current={i === idx}
               className={`w-2.5 h-2.5 rounded-full transition-all ${
                 i === idx ? "bg-neon-cyan shadow-[0_0_8px_rgba(34,211,238,0.9)]" : "bg-white/30"
               }`}

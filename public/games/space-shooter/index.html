@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>太空射击</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#060414;border:1px solid rgba(34,211,238,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🚀 太空射击</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>生命 <b id="lives">3</b></span><span>波次 <b id="wave">1</b></span></div>
+<canvas id="cv" width="420" height="520"></canvas>
+<p class="tip">←→ / A D 或 拖动 移动 · 空格 / 点击 射击（可按住连发）· P 暂停 · 撞上敌机或被击中 -1 生命</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let ship,bullets,ennemies,stars,score,lives,wave,dead,started,frame,cool,keys={},paused=false;
+let enemies=[];
+
+function newGame(){
+  ship={x:cv.width/2,y:cv.height-50,w:26};
+  bullets=[];enemies=[];score=0;lives=3;wave=1;dead=false;started=false;frame=0;cool=0;paused=false;
+  stars=Array.from({length:60},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,s:.4+Math.random()*1.6}));
+  hud();cancelAnimationFrame(raf);loop();
+  drawStart();
+}
+function hud(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent=lives;document.getElementById('wave').textContent=wave;}
+function start(){
+  if(started||dead)return;
+  started=true;
+  ArcadeAudio.bgm('bright');
+}
+function shoot(){
+  bullets.push({x:ship.x,y:ship.y-16});
+  ArcadeAudio.sfx('click');
+}
+function spawnWave(){
+  const n=4+wave*2;
+  for(let i=0;i<n;i++){
+    enemies.push({x:30+Math.random()*(cv.width-60),y:-30-i*46,vy:.6+wave*.15,s:14,hp:wave>=4&&Math.random()<.25?2:1});
+  }
+}
+function die(){
+  dead=true;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('explode');
+  ArcadeBridge.submitScore(score);
+  ctx.fillStyle='rgba(6,4,20,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#f472b6';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`游戏结束：${score} 分`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('点击 / 空格 再来一局',cv.width/2,cv.height/2+20);
+  const restart=e=>{e.preventDefault();cv.removeEventListener('mousedown',restart);removeEventListener('keydown',keyRestart);newGame();};
+  const keyRestart=e=>{if(e.key===' ')restart(e);};
+  cv.addEventListener('mousedown',restart);
+  addEventListener('keydown',keyRestart);
+}
+function update(){
+  frame++;
+  stars.forEach(s=>{s.y+=s.s*2;if(s.y>cv.height){s.y=0;s.x=Math.random()*cv.width;}});
+  if(!started)return;
+  if(keys.left)ship.x-=4.5;
+  if(keys.right)ship.x+=4.5;
+  ship.x=Math.max(16,Math.min(cv.width-16,ship.x));
+  if(keys.fire&&frame%9===0)shoot();
+  bullets.forEach(b=>b.y-=7);
+  bullets=bullets.filter(b=>b.y>-10);
+  enemies.forEach(e=>e.y+=e.vy);
+  // 波次
+  if(enemies.length===0){wave++;hud();ArcadeAudio.sfx('levelup');spawnWave();}
+  // 子弹打敌机
+  for(const e of enemies){
+    for(const b of bullets){
+      if(!b.hit&&Math.abs(b.x-e.x)<e.s&&Math.abs(b.y-e.y)<e.s){
+        b.hit=true;e.hp--;
+        if(e.hp<=0){e.dead=true;score+=10;hud();ArcadeAudio.sfx('brick');}
+        else ArcadeAudio.sfx('hit');
+      }
+    }
+  }
+  bullets=bullets.filter(b=>!b.hit);
+  enemies=enemies.filter(e=>!e.dead);
+  // 敌机撞船 / 触底
+  for(const e of enemies){
+    if(Math.abs(e.x-ship.x)<e.s+8&&Math.abs(e.y-ship.y)<e.s+8){
+      e.dead=true;loseLife();break;
+    }
+    if(e.y>cv.height+20){e.dead=true;loseLife();break;}
+  }
+  enemies=enemies.filter(e=>!e.dead);
+}
+function loseLife(){
+  lives--;hud();
+  ArcadeAudio.sfx('miss');
+  if(lives<=0)die();
+}
+function draw(){
+  ctx.fillStyle='#060414';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(148,163,255,.4)';
+  stars.forEach(s=>ctx.fillRect(s.x,s.y,1.6,1.6));
+  if(started&&!dead){
+    // 子弹
+    ctx.fillStyle='#facc15';ctx.shadowColor='#facc15';ctx.shadowBlur=8;
+    bullets.forEach(b=>ctx.fillRect(b.x-1.5,b.y-8,3,10));
+    // 敌机
+    enemies.forEach(e=>{
+      ctx.fillStyle=e.hp>1?'#f472b6':'#f87171';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10;
+      ctx.beginPath();ctx.moveTo(e.x,e.y+e.s);ctx.lineTo(e.x-e.s,e.y-e.s);ctx.lineTo(e.x+e.s,e.y-e.s);ctx.closePath();ctx.fill();
+    });
+    // 飞船
+    ctx.fillStyle='#22d3ee';ctx.shadowColor='#22d3ee';ctx.shadowBlur=14;
+    ctx.beginPath();ctx.moveTo(ship.x,ship.y-16);ctx.lineTo(ship.x-14,ship.y+12);ctx.lineTo(ship.x+14,ship.y+12);ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;
+  }
+}
+function drawStart(){
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('任意方向键 / 点击 开始',cv.width/2,cv.height/2+40);
+}
+function loop(){
+  if(dead)return;
+  if(!paused)update();
+  draw();
+  if(paused){
+    ctx.fillStyle='rgba(6,4,20,.6)';ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#22d3ee';ctx.font='bold 22px system-ui';ctx.textAlign='center';
+    ctx.fillText('⏸ 已暂停 · 按 P 继续',cv.width/2,cv.height/2);
+  }
+  raf=requestAnimationFrame(loop);
+}
+let raf=0;
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a'){keys.left=true;start();}
+  if(e.key==='ArrowRight'||e.key==='d'){keys.right=true;start();}
+  if(e.key===' '){e.preventDefault();keys.fire=true;start();}
+  if((e.key==='p'||e.key==='P')&&started&&!dead){
+    paused=!paused;
+    if(paused)ArcadeAudio.stopBgm();else ArcadeAudio.bgm('bright');
+  }
+});
+addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
+  if(e.key===' ')keys.fire=false;
+});
+// 触摸 / 鼠标拖动 + 点按射击
+let dragging=false;
+function moveTo(clientX){
+  const r=cv.getBoundingClientRect();
+  ship.x=Math.max(16,Math.min(cv.width-16,(clientX-r.left)*(cv.width/r.width)));
+}
+cv.addEventListener('mousedown',e=>{dragging=true;moveTo(e.clientX);keys.fire=true;start();});
+cv.addEventListener('mousemove',e=>{if(dragging)moveTo(e.clientX);});
+addEventListener('mouseup',()=>{dragging=false;keys.fire=false;});
+cv.addEventListener('touchstart',e=>{e.preventDefault();moveTo(e.touches[0].clientX);keys.fire=true;start();},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();moveTo(e.touches[0].clientX);},{passive:false});
+cv.addEventListener('touchend',()=>{keys.fire=false;});
+newGame();
+</script>
+</body>
+</html>

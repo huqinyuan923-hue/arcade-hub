@@ -29,7 +29,7 @@ export const games = pgTable(
     thumbnail: text("thumbnail").notNull().default(""),
     sourceType: text("source_type").notNull().default("builtin"), // 'builtin' | 'iframe'
     embedUrl: text("embed_url"), // 第三方 iframe 游戏地址
-    playPath: text("play_path"), // 站内游戏路径，如 /games/2048/
+    playPath: text("play_path"), // 站内游戏路径，如 /games/2048/index.html
     plays: integer("plays").notNull().default(0),
     hasScore: boolean("has_score").notNull().default(true),
     featured: boolean("featured").notNull().default(false),

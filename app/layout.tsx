@@ -21,12 +21,21 @@ const pressStart = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://arcade-hub-nu.vercel.app"),
   title: {
     default: "Arcade Hub · 霓虹街机游戏厅",
     template: "%s · Arcade Hub",
   },
   description:
     "Arcade Hub 是一个在线街机游戏门户：2048、贪吃蛇、俄罗斯方块等经典小游戏即点即玩，支持用户收藏、评分与全站排行榜。",
+  icons: { icon: "/icon.svg" },
+  openGraph: {
+    type: "website",
+    siteName: "Arcade Hub",
+    title: "Arcade Hub · 霓虹街机游戏厅",
+    description: "2048、贪吃蛇、俄罗斯方块等 16 款经典小游戏即点即玩，冲击排行榜。",
+    images: [{ url: "/icon.svg", width: 64, height: 64, alt: "Arcade Hub" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

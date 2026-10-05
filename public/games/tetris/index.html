@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>霓虹俄罗斯方块</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:16px;min-height:100vh;padding:10px;flex-wrap:wrap;}
@@ -27,6 +28,10 @@
   <button class="restart" id="btnRestart">重新开始</button>
 </div>
 <div class="side">
+  <div style="text-align:center;">
+    <p style="color:#94a3b8;font-size:12px;margin-bottom:4px;">下一块</p>
+    <canvas id="next" width="96" height="72" style="background:#120f28;border:1px solid rgba(34,211,238,.3);border-radius:8px;"></canvas>
+  </div>
   <div class="pad">
     <span></span><button data-a="rot">⟳</button><span></span>
     <button data-a="left">◀</button><button data-a="down">▼</button><button data-a="right">▶</button>
@@ -36,6 +41,7 @@
 </div>
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const ncv=document.getElementById('next'),nctx=ncv.getContext('2d');
 const W=10,H=20,S=24;
 const PIECES=[
   {c:'#22d3ee',m:[[1,1,1,1]]},
@@ -46,18 +52,35 @@ const PIECES=[
   {c:'#f472b6',m:[[1,0,0],[1,1,1]]},
   {c:'#60a5fa',m:[[0,0,1],[1,1,1]]},
 ];
-let grid,piece,score,lines,level,over,timer,speed;
+let grid,piece,nextPiece,score,lines,level,over,timer,speed;
 
 function newGame(){
   grid=Array.from({length:H},()=>Array(W).fill(null));
   score=0;lines=0;level=1;over=false;speed=700;
+  nextPiece=randomPiece();
   document.getElementById('btnRestart').textContent='重新开始';
   spawn();updateHud();
   clearInterval(timer);timer=setInterval(tick,speed);
+  ArcadeAudio.bgm('march');
+}
+function randomPiece(){
+  const p=PIECES[Math.random()*PIECES.length|0];
+  return {c:p.c,m:p.m.map(r=>[...r]),x:3,y:0};
+}
+function drawNext(){
+  nctx.clearRect(0,0,ncv.width,ncv.height);
+  const m=nextPiece.m,S=16;
+  const w=m[0].length*S,h=m.length*S;
+  m.forEach((row,r)=>row.forEach((v,c)=>{
+    if(v){nctx.fillStyle=nextPiece.c;nctx.shadowColor=nextPiece.c;nctx.shadowBlur=6;
+      nctx.fillRect((ncv.width-w)/2+c*S+1,(ncv.height-h)/2+r*S+1,S-2,S-2);}
+  }));
+  nctx.shadowBlur=0;
 }
 function spawn(){
-  const p=PIECES[Math.random()*PIECES.length|0];
-  piece={c:p.c,m:p.m.map(r=>[...r]),x:3,y:0};
+  piece=nextPiece;
+  nextPiece=randomPiece();
+  drawNext();
   if(collide(piece.x,piece.y,piece.m)){gameOver();}
 }
 function collide(x,y,m){
@@ -79,6 +102,7 @@ function lock(){
   piece.m.forEach((row,r)=>row.forEach((v,c)=>{
     if(v&&piece.y+r>=0)grid[piece.y+r][piece.x+c]=piece.c;
   }));
+  ArcadeAudio.sfx('hit');
   let cleared=0;
   for(let r=H-1;r>=0;r--){
     if(grid[r].every(Boolean)){grid.splice(r,1);grid.unshift(Array(W).fill(null));cleared++;r++;}
@@ -91,21 +115,24 @@ function lock(){
     speed=Math.max(120,700-(level-1)*60);
     timer=setInterval(tick,speed);
     updateHud();
+    ArcadeAudio.sfx(cleared>=4?'win':'levelup');
   }
   spawn();draw();
 }
 function rotate(){
   const m=piece.m[0].map((_,i)=>piece.m.map(r=>r[i]).reverse());
-  if(!collide(piece.x,piece.y,m))piece.m=m;
+  if(!collide(piece.x,piece.y,m)){piece.m=m;ArcadeAudio.sfx('move');}
   draw();
 }
 function hardDrop(){
   while(!collide(piece.x,piece.y+1,piece.m))piece.y++;
-  lock();draw();
+  lock();draw();ArcadeAudio.sfx('score');
 }
-function move(dx){if(!collide(piece.x+dx,piece.y,piece.m)){piece.x+=dx;draw();}}
+function move(dx){if(!collide(piece.x+dx,piece.y,piece.m)){piece.x+=dx;draw();ArcadeAudio.sfx('move');}}
 function gameOver(){
   over=true;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('over');
   ArcadeBridge.submitScore(score);
   document.getElementById('btnRestart').textContent=`💀 游戏结束（${score}分）· 点此重来`;
 }

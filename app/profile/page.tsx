@@ -7,6 +7,7 @@ type ProfileData = {
   favorites: { slug: string; title: string; thumbnail: string; category: string }[];
   scores: { slug: string; title: string; best: number; plays: number }[];
   recent: { slug: string; title: string; thumbnail: string; playedAt: string }[];
+  stats?: { playCount: number; scoreCount: number; favCount: number; bestScore: number };
 };
 
 export default function ProfilePage() {
@@ -47,6 +48,23 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold">
         🎮 <span className="text-neon-cyan neon-text">我的游戏中心</span>
       </h1>
+
+      {data?.stats && (
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "累计游玩", value: data.stats.playCount, icon: "🕹️" },
+            { label: "提交成绩", value: data.stats.scoreCount, icon: "🏅" },
+            { label: "收藏游戏", value: data.stats.favCount, icon: "❤️" },
+            { label: "单项最高分", value: data.stats.bestScore, icon: "👑" },
+          ].map((s) => (
+            <div key={s.label} className="card p-4 text-center">
+              <p className="text-2xl">{s.icon}</p>
+              <p className="font-mono text-2xl font-bold text-neon-cyan mt-1">{s.value}</p>
+              <p className="text-xs text-slate-400 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section>
         <h2 className="text-lg font-bold mb-3">❤️ 我的收藏（{data?.favorites.length ?? 0}）</h2>

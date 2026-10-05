@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>24 点速算</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#facc15;text-shadow:0 0 10px rgba(250,204,21,.6);font-size:24px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #cards{display:flex;gap:10px;margin:6px 0;}
+  .card{width:64px;height:84px;background:linear-gradient(135deg,#312e81,#4a3f78);border:1px solid rgba(250,204,21,.4);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;cursor:pointer;transition:transform .1s,box-shadow .1s;}
+  .card.sel{border-color:#facc15;box-shadow:0 0 14px rgba(250,204,21,.6);transform:translateY(-6px);}
+  .card.used{opacity:.15;cursor:default;transform:none;box-shadow:none;}
+  #expr{min-height:30px;font-size:22px;color:#d9fbff;text-align:center;word-break:break-all;max-width:92vw;font-family:ui-monospace,monospace;}
+  .ops{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .ops button{width:52px;height:44px;background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;border-radius:10px;font-size:20px;cursor:pointer;}
+  .ops button.go{background:linear-gradient(135deg,rgba(34,211,238,.25),rgba(163,230,53,.25));border-color:#a3e635;color:#d9f99d;width:auto;padding:0 20px;}
+  .ops button.undo,.ops button.skip{width:auto;padding:0 14px;font-size:14px;}
+  #msg{min-height:44px;font-size:15px;text-align:center;max-width:92vw;}
+  p.tip{color:#64748b;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<h1>🧮 24 点速算</h1>
+<div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>时间 <b id="time">60</b>s</span></div>
+<div id="cards"></div>
+<div id="expr"></div>
+<div class="ops">
+  <button data-op="+">+</button>
+  <button data-op="-">−</button>
+  <button data-op="*">×</button>
+  <button data-op="/">÷</button>
+  <button data-op="(">（</button>
+  <button data-op=")">）</button>
+  <button class="undo">↩ 重来</button>
+  <button class="go">提交 ✓</button>
+  <button class="skip">跳过 ⏭</button>
+</div>
+<p id="msg"></p>
+<p class="tip">用 4 张牌各用一次，配 + − × ÷ 和括号算出 24 · 每题 60 秒 · 答对 +100，连对有加成</p>
+<script>
+const cardsEl=document.getElementById('cards'),exprEl=document.getElementById('expr'),msgEl=document.getElementById('msg');
+let nums,used,expr,score=0,streak=0,timer,left;
+
+function newRound(){
+  do{nums=Array.from({length:4},()=>1+Math.random()*13|0);}while(!solvable(nums));
+  used=[false,false,false,false];expr='';
+  document.getElementById('time').textContent=left=60;
+  clearInterval(timer);
+  timer=setInterval(()=>{left--;document.getElementById('time').textContent=left;if(left<=0)fail('⏰ 时间到！');},1000);
+  msgEl.textContent='';msgEl.style.color='#94a3b8';
+  render();
+}
+function lastCh(){return expr.slice(-1);}
+function render(){
+  cardsEl.innerHTML='';
+  nums.forEach((n,i)=>{
+    const c=document.createElement('div');
+    c.className='card'+(used[i]?' used':'');
+    c.textContent=n;
+    c.addEventListener('click',()=>pick(i));
+    cardsEl.appendChild(c);
+  });
+  exprEl.textContent=expr||'？ ＋ ？ ＝ 24';
+}
+function pick(i){
+  if(used[i])return;
+  const lc=lastCh();
+  if(/\d|\)/.test(lc))return; // 数字后面必须接运算符或右括号
+  used[i]=true;expr+=nums[i];
+  ArcadeAudio.sfx('click');
+  render();
+}
+function addOp(op){
+  const lc=lastCh();
+  if(!expr)return;
+  if(op==='('){if(/\d|\)/.test(lc))return;}
+  else if(op===')'){if(!/\d/.test(lc))return;}
+  else{if(!/\d|\)/.test(lc))return;}
+  ArcadeAudio.sfx('flip');
+  // 展示用符号
+  expr+=op==='*'?'×':op==='/'?'÷':op;
+  render();
+}
+function reset(){
+  expr='';used=used.map(()=>false);
+  msgEl.textContent='';
+  ArcadeAudio.sfx('move');
+  render();
+}
+function fail(text){
+  clearInterval(timer);
+  streak=0;document.getElementById('streak').textContent=0;
+  ArcadeAudio.sfx('over');
+  msgEl.style.color='#f472b6';
+  msgEl.textContent=text+' 参考答案：'+(findSolution(nums)||'—');
+}
+function submit(){
+  // 4 张牌必须各用一次
+  if(!used.every(Boolean))return bad('⚠️ 4 张牌都要用上');
+  let v;
+  try{v=Function('"use strict";return('+expr.replace(/×/g,'*').replace(/÷/g,'/')+')')();}catch(e){return bad('⚠️ 表达式不完整');}
+  if(!isFinite(v))return bad('⚠️ 除数不能为 0');
+  if(Math.abs(v-24)<1e-9){
+    clearInterval(timer);
+    const gain=100+streak*20+left;
+    streak++;score+=gain;
+    document.getElementById('score').textContent=score;
+    document.getElementById('streak').textContent=streak;
+    ArcadeAudio.sfx('win');
+    msgEl.style.color='#a3e635';
+    msgEl.textContent=`✅ ${expr} = 24 ！+${gain}`;
+    ArcadeBridge.submitScore(score);
+    setTimeout(newRound,1400);
+  }else bad(`❌ ${expr} = ${Math.round(v*100)/100}，不是 24`);
+  function bad(t){
+    ArcadeAudio.sfx('miss');
+    msgEl.style.color='#f472b6';
+    msgEl.textContent=t;
+  }
+}
+// 可解性搜索（带括号全枚举）
+function solvable(ns){return findSolution(ns)!==null;}
+function findSolution(ns){
+  function search(arr){
+    if(arr.length===1)return Math.abs(arr[0].v-24)<1e-9?arr[0].e:null;
+    for(let i=0;i<arr.length;i++)for(let j=0;j<arr.length;j++){
+      if(i===j)continue;
+      for(const op of ['+','-','*','/']){
+        if((op==='+'||op==='*')&&i>j)continue; // 交换律去重
+        if(op==='/'&&arr[j].v===0)continue;
+        const v=op==='+'?arr[i].v+arr[j].v:op==='-'?arr[i].v-arr[j].v:op==='*'?arr[i].v*arr[j].v:arr[i].v/arr[j].v;
+        if(!isFinite(v))continue;
+        const rest=arr.filter((_,k)=>k!==i&&k!==j);
+        const r=search([...rest,{v,e:`(${arr[i].e}${op==='*'?'×':op==='/'?'÷':op}${arr[j].e})`}]);
+        if(r!==null)return r;
+      }
+    }
+    return null;
+  }
+  return search(ns.map(n=>({v:n,e:String(n)})));
+}
+document.querySelectorAll('.ops button').forEach(b=>b.addEventListener('click',()=>{
+  if(b.dataset.op)addOp(b.dataset.op);
+  else if(b.classList.contains('undo'))reset();
+  else if(b.classList.contains('skip')){streak=0;document.getElementById('streak').textContent=0;ArcadeAudio.sfx('move');newRound();}
+  else submit();
+}));
+newRound();
+ArcadeAudio.bgm('chill');
+</script>
+</body>
+</html>

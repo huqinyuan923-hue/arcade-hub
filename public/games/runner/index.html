@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>像素跑酷</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(244,114,182,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🏃 像素跑酷</h1>
+<div class="hud"><span>距离 <b id="score">0</b>m</span><span>最高 <b id="hi">0</b>m</span></div>
+<canvas id="cv" width="560" height="300"></canvas>
+<p class="tip">空格 / ↑ / 点击 跳跃（支持二段跳）· P 键暂停 · 跳过尖刺和石块 · 速度会越来越快</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const GROUND=cv.height-46;
+let hero,obs,clouds,score,dead,started,frame,speed,raf,paused=false;
+let hi=+(localStorage.getItem('arunnerhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  hero={x:70,y:GROUND,jumps:0,vy:0};
+  obs=[];clouds=Array.from({length:4},(_,i)=>({x:100+i*160,y:40+Math.random()*60,s:.4}));
+  score=0;dead=false;started=false;frame=0;speed=4.5;
+  document.getElementById('score').textContent=0;
+  cancelAnimationFrame(raf);loop();
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('按 空格 / 点击 开始',cv.width/2,cv.height/2-20);
+}
+function jump(){
+  if(dead)return;
+  if(!started){started=true;ArcadeAudio.bgm('march');}
+  if(hero.jumps<2){
+    hero.vy=-11.5;hero.jumps++;
+    ArcadeAudio.sfx('jump');
+  }
+}
+function update(){
+  frame++;
+  clouds.forEach(c=>{c.x-=c.s;if(c.x<-40){c.x=cv.width+40;c.y=40+Math.random()*60;}});
+  if(!started)return;
+  score=Math.floor(frame/6);document.getElementById('score').textContent=score;
+  speed=4.5+frame/900;
+  // 物理
+  hero.vy+=0.62;hero.y+=hero.vy;
+  if(hero.y>=GROUND){hero.y=GROUND;hero.vy=0;hero.jumps=0;}
+  // 生成障碍：尖刺（矮，可跳）和石块（高）
+  if(frame%Math.max(40,95-frame/40|0)===0){
+    const tall=Math.random()<0.35;
+    obs.push({x:cv.width+20,w:tall?22:16,h:tall?34:18,tall});
+  }
+  obs.forEach(o=>o.x-=speed);
+  obs=obs.filter(o=>o.x>-30);
+  // 碰撞（留宽容边距）
+  for(const o of obs){
+    if(hero.x+10>o.x&&hero.x-10<o.x+o.w&&hero.y>GROUND-o.h+6){
+      return die();
+    }
+  }
+}
+function die(){
+  dead=true;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('explode');
+  if(score>hi){hi=score;localStorage.setItem('arunnerhi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  ctx.fillStyle='rgba(7,5,16,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#f472b6';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`游戏结束：${score} 米`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('空格 / 点击 再来一局',cv.width/2,cv.height/2+20);
+  const restart=e=>{e.preventDefault();removeEventListener('keydown',keyRestart);cv.removeEventListener('mousedown',restart);newGame();};
+  const keyRestart=e=>{if(e.key===' '||e.key==='ArrowUp')restart(e);};
+  addEventListener('keydown',keyRestart);
+  cv.addEventListener('mousedown',restart);
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  // 远山
+  ctx.fillStyle='rgba(124,58,237,.25)';
+  for(let i=0;i<5;i++){
+    const bx=(i*160-(frame*0.3)%160);
+    ctx.beginPath();ctx.moveTo(bx,GROUND);ctx.lineTo(bx+70,GROUND-70);ctx.lineTo(bx+140,GROUND);ctx.fill();
+  }
+  ctx.fillStyle='rgba(148,163,255,.4)';
+  clouds.forEach(c=>{ctx.beginPath();ctx.ellipse(c.x,c.y,26,8,0,0,7);ctx.fill();});
+  // 地面
+  ctx.fillStyle='#1a1633';ctx.fillRect(0,GROUND,cv.width,cv.height-GROUND);
+  ctx.strokeStyle='rgba(244,114,182,.5)';ctx.beginPath();ctx.moveTo(0,GROUND);ctx.lineTo(cv.width,GROUND);ctx.stroke();
+  // 地面刻度（速度感）
+  ctx.fillStyle='rgba(148,163,255,.25)';
+  for(let i=0;i<14;i++){const x=(i*48-(frame*speed)%48);ctx.fillRect(x,GROUND+14,18,2);}
+  if(started&&!dead){
+    // 障碍
+    obs.forEach(o=>{
+      ctx.fillStyle=o.tall?'#f87171':'#fb923c';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=8;
+      if(o.tall){ctx.fillRect(o.x,GROUND-o.h,o.w,o.h);}
+      else{ctx.beginPath();ctx.moveTo(o.x,GROUND);ctx.lineTo(o.x+o.w/2,GROUND-o.h);ctx.lineTo(o.x+o.w,GROUND);ctx.closePath();ctx.fill();}
+    });
+    // 小人
+    ctx.shadowColor='#f472b6';ctx.shadowBlur=12;
+    ctx.fillStyle='#f472b6';
+    ctx.fillRect(hero.x-8,hero.y-22,16,22); // 身体
+    ctx.fillStyle='#facc15';
+    ctx.fillRect(hero.x-6,hero.y-30,12,9);   // 头
+    ctx.shadowBlur=0;
+  }
+}
+function loop(){
+  if(dead)return;
+  if(!paused){update();}
+  draw();
+  raf=requestAnimationFrame(loop);
+}
+addEventListener('keydown',e=>{
+  if(e.key===' '||e.key==='ArrowUp'){e.preventDefault();jump();}
+  if(e.key==='p'||e.key==='P'){
+    if(!started||dead)return;
+    paused=!paused;
+    if(paused)ArcadeAudio.stopBgm();else ArcadeAudio.bgm('march');
+  }
+});
+cv.addEventListener('mousedown',jump);
+cv.addEventListener('touchstart',e=>{e.preventDefault();jump();},{passive:false});
+newGame();
+</script>
+</body>
+</html>

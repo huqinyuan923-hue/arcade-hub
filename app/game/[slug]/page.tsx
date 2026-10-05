@@ -27,7 +27,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const game = await getGameBySlug(slug);
   if (!game) return { title: "游戏不存在" };
-  return { title: game.title, description: game.description };
+  return {
+    title: game.title,
+    description: game.description,
+    robots: game.status !== "published" ? { index: false, follow: false } : undefined,
+    openGraph: {
+      title: game.title,
+      description: game.description,
+      images: [{ url: game.thumbnail, alt: game.title }],
+    },
+  };
 }
 
 export default async function GameDetailPage({
@@ -47,7 +56,10 @@ export default async function GameDetailPage({
     user ? isFavorited(user.id, game.id) : Promise.resolve(false),
   ]);
 
-  const src = game.sourceType === "iframe" ? (game.embedUrl ?? "") : (game.playPath ?? `/games/${game.slug}/`);
+  // Next.js 不解析目录索引：站内游戏必须指向完整 index.html，尾部斜杠路径会 404
+  const rawPlayPath = game.playPath ?? `/games/${game.slug}/index.html`;
+  const playPath = game.sourceType === "iframe" ? "" : rawPlayPath.endsWith(".html") ? rawPlayPath : rawPlayPath.replace(/\/?$/, "index.html");
+  const src = game.sourceType === "iframe" ? (game.embedUrl ?? "") : playPath;
 
   return (
     <div className="flex flex-col gap-6">

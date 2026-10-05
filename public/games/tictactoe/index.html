@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>井字棋 · 人机对战</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
   body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
@@ -44,6 +45,7 @@ function newGame(){
 }
 function play(i){
   if(!playing||board[i])return;
+  ArcadeAudio.sfx('click');
   board[i]='O';cells[i].textContent='⭕';cells[i].classList.add('o');
   const r=check('O');
   if(r){return finish('O',r);}
@@ -64,6 +66,7 @@ function aiMove(){
   }
   if(mv===null){if(!board[4])mv=4;else{const corners=[0,2,6,8].filter(i=>!board[i]);mv=corners.length?corners[Math.random()*corners.length|0]:empty[Math.random()*empty.length|0];}}
   board[mv]='X';cells[mv].textContent='❌';cells[mv].classList.add('x');
+  ArcadeAudio.sfx('flip');
   playing=true;
   const r=check('X');
   if(r){return finish('X',r);}
@@ -80,12 +83,15 @@ function finish(winner,winLine){
   let score;
   if(winner==='O'){
     streak++;score=100;
+    ArcadeAudio.sfx('win');
     statusEl.textContent=`🏆 你赢了！连胜 ${streak} · +100`;
   }else if(winner==='X'){
     streak=0;score=10;
+    ArcadeAudio.sfx('over');
     statusEl.textContent='🤖 电脑赢了 · +10，连胜已重置';
   }else{
     score=50;
+    ArcadeAudio.sfx('draw');
     statusEl.textContent='🤝 平局 · +50';
   }
   document.getElementById('streak').textContent=streak;
@@ -93,6 +99,7 @@ function finish(winner,winLine){
 }
 document.getElementById('btnRestart').addEventListener('click',newGame);
 newGame();
+ArcadeAudio.bgm('chill');
 </script>
 </body>
 </html>

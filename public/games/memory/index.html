@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>记忆翻牌</title>
 <script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
@@ -25,7 +26,7 @@
 </head>
 <body>
 <h1>🃏 记忆翻牌</h1>
-<div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span></div>
+<div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span><span>配对 <b id="pairs">0</b>/8</span></div>
 <div id="grid"></div>
 <p class="tip">翻开全部 8 对即获胜 · 步数越少、速度越快，得分越高</p>
 <script>
@@ -36,6 +37,7 @@ let cards,open,matched,moves,seconds,timer,lock;
 function newGame(){
   const deck=[...EMOJI,...EMOJI].sort(()=>Math.random()-.5);
   gridEl.innerHTML='';cards=[];open=[];matched=0;moves=0;seconds=0;lock=false;
+  document.getElementById('pairs').textContent=0;
   clearInterval(timer);
   document.getElementById('moves').textContent=0;
   document.getElementById('time').textContent=0;
@@ -51,11 +53,14 @@ function tap(el){
   if(lock||el.classList.contains('open')||el.classList.contains('done'))return;
   if(moves===0&&!timer)timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
   el.classList.add('open');open.push(el);
+  ArcadeAudio.sfx('flip');
   if(open.length===2){
     moves++;document.getElementById('moves').textContent=moves;
     if(open[0].dataset.emoji===open[1].dataset.emoji){
       open.forEach(x=>{x.classList.remove('open');x.classList.add('done');});
       open=[];matched++;
+      document.getElementById('pairs').textContent=matched;
+      ArcadeAudio.sfx('match');
       if(matched===8)finish();
     }else{
       lock=true;
@@ -65,6 +70,8 @@ function tap(el){
 }
 function finish(){
   clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('win');
   const score=Math.max(100,1000-(moves-8)*20-seconds*2);
   ArcadeBridge.submitScore(score);
   const b=document.createElement('button');
@@ -73,6 +80,6 @@ function finish(){
   document.body.appendChild(b);
 }
 newGame();
-</script>
+ArcadeAudio.bgm('dream');</script>
 </body>
 </html>

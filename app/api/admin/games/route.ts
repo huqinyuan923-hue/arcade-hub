@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       thumbnail: String(body.thumbnail ?? "").trim(),
       sourceType,
       embedUrl,
-      playPath: sourceType === "builtin" ? `/games/${slug}/` : null,
+      playPath: sourceType === "builtin" ? `/games/${slug}/index.html` : null,
       hasScore: body.hasScore !== false,
       featured: body.featured === true,
       status: body.status === "hidden" ? "hidden" : "published",

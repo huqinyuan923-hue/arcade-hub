@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>接金币</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#fb923c;text-shadow:0 0 10px rgba(251,146,60,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(251,146,60,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🪙 接金币</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>生命 <b id="lives">3</b></span><span>漏接 <b id="miss">0</b>/8</span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="420" height="480"></canvas>
+<p class="tip">←→ / A D 或 鼠标 / 触摸移动 接金币 💰 +10 · 香菇 ☠️ 或漏接 8 个金币 -1 生命 · 会越掉越快</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let basket,items,stars,score,lives,dead,started,frame,speed,spawnEvery;
+let hi=+(localStorage.getItem('acoinhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  basket={x:cv.width/2,w:76};
+  items=[];stars=Array.from({length:40},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,s:.3+Math.random()}));
+  score=0;lives=3;dead=false;started=false;frame=0;speed=2;spawnEvery=55;
+  hud();cancelAnimationFrame(raf);loop();
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('按方向键 / 点击 开始',cv.width/2,cv.height/2+40);
+}
+function hud(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent=lives;}
+function start(){
+  if(started||dead)return;
+  started=true;
+  ArcadeAudio.bgm('pulse');
+}
+function spawn(){
+  const bomb=Math.random()<0.22;
+  items.push({x:20+Math.random()*(cv.width-40),y:-16,bomb,r:12,rot:0});
+}
+function update(){
+  frame++;
+  stars.forEach(s=>{s.y+=s.s;if(s.y>cv.height){s.y=0;s.x=Math.random()*cv.width;}});
+  if(!started)return;
+  if(keys.left)basket.x-=6;
+  if(keys.right)basket.x+=6;
+  basket.x=Math.max(basket.w/2,Math.min(cv.width-basket.w/2,basket.x));
+  if(frame%spawnEvery===0)spawn();
+  if(frame%(60*12)===0&&spawnEvery>24){spawnEvery-=6;speed+=0.4;} // 随时间提速
+  for(const it of items){
+    it.y+=it.bomb?speed*0.9:speed;
+    it.rot+=0.08;
+    // 接住判定
+    if(it.y>cv.height-46&&it.y<cv.height-14&&Math.abs(it.x-basket.x)<basket.w/2+6){
+      it.dead=true;
+      if(it.bomb){loseLife();}
+      else{score+=10;hud();ArcadeAudio.sfx('eat');}
+      continue;
+    }
+    if(it.y>cv.height+16){it.dead=true;if(it.bomb)continue;missed++;document.getElementById('miss').textContent=missed;}
+  }
+  if(missed>=8){missed=0;document.getElementById('miss').textContent=0;loseLife();}
+  items=items.filter(i=>!i.dead);
+}
+let missed=0;
+function loseLife(){
+  lives--;hud();
+  ArcadeAudio.sfx('miss');
+  if(lives<=0)die();
+}
+function die(){
+  dead=true;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('over');
+  if(score>hi){hi=score;localStorage.setItem('acoinhi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  ctx.fillStyle='rgba(7,5,16,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#fb923c';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`游戏结束：${score} 分`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('点击 / 方向键 再来一局',cv.width/2,cv.height/2+20);
+  const restart=e=>{e.preventDefault();cv.removeEventListener('mousedown',restart);removeEventListener('keydown',keyRestart);newGame();};
+  const keyRestart=e=>{if(e.key.startsWith('Arrow'))restart(e);};
+  cv.addEventListener('mousedown',restart);
+  addEventListener('keydown',keyRestart);
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(148,163,255,.3)';
+  stars.forEach(s=>ctx.fillRect(s.x,s.y,1.5,1.5));
+  // 底部篮筐线
+  ctx.fillStyle='rgba(251,146,60,.15)';ctx.fillRect(0,cv.height-14,cv.width,2);
+  if(started&&!dead){
+    items.forEach(it=>{
+      ctx.save();ctx.translate(it.x,it.y);ctx.rotate(it.rot);
+      ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(it.bomb?'☠️':'💰',0,0);
+      ctx.restore();
+    });
+    // 篮子
+    ctx.fillStyle='#fb923c';ctx.shadowColor='#fb923c';ctx.shadowBlur=12;
+    ctx.beginPath();
+    ctx.moveTo(basket.x-basket.w/2,cv.height-30);
+    ctx.lineTo(basket.x+basket.w/2,cv.height-30);
+    ctx.lineTo(basket.x+basket.w/2-8,cv.height-12);
+    ctx.lineTo(basket.x-basket.w/2+8,cv.height-12);
+    ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;
+  }
+}
+function loop(){
+  if(dead)return;
+  update();draw();
+  raf=requestAnimationFrame(loop);
+}
+let raf=0,keys={};
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a'){keys.left=true;start();e.preventDefault();}
+  if(e.key==='ArrowRight'||e.key==='d'){keys.right=true;start();e.preventDefault();}
+});
+addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
+});
+let dragging=false;
+function moveTo(clientX){
+  const r=cv.getBoundingClientRect();
+  basket.x=Math.max(basket.w/2,Math.min(cv.width-basket.w/2,(clientX-r.left)*(cv.width/r.width)));
+}
+cv.addEventListener('mousedown',e=>{dragging=true;moveTo(e.clientX);start();});
+cv.addEventListener('mousemove',e=>{if(dragging)moveTo(e.clientX);});
+addEventListener('mouseup',()=>dragging=false);
+cv.addEventListener('touchstart',e=>{e.preventDefault();moveTo(e.touches[0].clientX);start();},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();moveTo(e.touches[0].clientX);},{passive:false});
+newGame();
+</script>
+</body>
+</html>
