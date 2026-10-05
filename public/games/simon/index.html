@@ -22,7 +22,7 @@
 </head>
 <body>
 <h1>🎯 霓虹记忆序列</h1>
-<p class="hud">关卡 <b id="level">0</b></p>
+<p class="hud">关卡 <b id="level">0</b> <span style="color:#64748b;">· 最高 <b id="hi" style="color:#facc15;">0</b></span></p>
 <div id="pads">
   <div class="pad c0" data-i="0"></div><div class="pad c1" data-i="1"></div>
   <div class="pad c2" data-i="2"></div><div class="pad c3" data-i="3"></div>
@@ -72,6 +72,9 @@ pads.forEach(p=>p.addEventListener('pointerdown',()=>{
     playing=false;
     const score=level*10;
     statusEl.textContent=`❌ 错了！坚持到第 ${level} 关 · 得分 ${score}`;
+    const hi=Math.max(level,+(localStorage.getItem('asimonhi')||0));
+    localStorage.setItem('asimonhi',hi);
+    document.getElementById('hi').textContent=hi;
     ArcadeAudio.stopBgm();
     ArcadeAudio.sfx('over');
     ArcadeBridge.submitScore(score);

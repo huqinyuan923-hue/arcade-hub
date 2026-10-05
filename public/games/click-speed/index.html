@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>手速测试</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#facc15;text-shadow:0 0 10px rgba(250,204,21,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #pad{width:min(80vw,300px);aspect-ratio:1;border-radius:24px;border:2px solid rgba(250,204,21,.5);background:radial-gradient(circle at 40% 35%,rgba(250,204,21,.25),rgba(124,58,237,.15));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:transform .06s;font-size:15px;color:#94a3b8;}
+  #pad:active{transform:scale(.97);}
+  #pad .n{font-size:52px;font-weight:800;color:#facc15;font-family:ui-monospace,monospace;}
+  button.start{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:9px 26px;border-radius:10px;cursor:pointer;font-size:15px;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;text-align:center;}
+</style>
+</head>
+<body>
+<h1>🖱️ 手速测试</h1>
+<div class="hud"><span>点击 <b id="n">0</b></span><span>剩余 <b id="t">10.0</b>s</span><span>最高 CPS <b id="hi">0</b></span></div>
+<div id="pad"><span class="n" id="big">0</span><span>10 秒内疯狂点击！</span></div>
+<button class="start" id="btn">开始测试</button>
+<p id="msg">鼠标连点或手指连戳都行 · CPS = 每秒点击数</p>
+<script>
+const pad=document.getElementById('pad'),btn=document.getElementById('btn'),msg=document.getElementById('msg');
+let n,running,t0,timer;
+let hi=+(localStorage.getItem('aclickhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function start(){
+  n=0;running=true;t0=Date.now();
+  document.getElementById('n').textContent=0;
+  document.getElementById('big').textContent=0;
+  btn.style.display='none';
+  msg.textContent='🔥 冲！';
+  ArcadeAudio.bgm('pulse');
+  timer=setInterval(()=>{
+    const el=(Date.now()-t0)/1000;
+    document.getElementById('t').textContent=Math.max(0,10-el).toFixed(1);
+    if(el>=10)finish();
+  },50);
+}
+function finish(){
+  running=false;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  const cps=n/10;
+  if(cps>hi){hi=cps;localStorage.setItem('aclickhi',hi);document.getElementById('hi').textContent=hi.toFixed(1);}
+  ArcadeAudio.sfx(cps>6?'win':'over');
+  ArcadeBridge.submitScore(Math.round(cps*100));
+  msg.style.color=cps>6?'#a3e635':'#f472b6';
+  msg.textContent=`结果：${n} 次点击 · CPS ${cps.toFixed(1)} ${cps>8?'🚀 手速惊人':cps>6?'👍 很快':cps>4?'🙂 不错':'🐢 再练练'} · 得分 ${Math.round(cps*100)}`;
+  document.getElementById('t').textContent='0.0';
+  btn.style.display='';
+  btn.textContent='再来一次';
+}
+pad.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  if(!running)return;
+  n++;
+  document.getElementById('n').textContent=n;
+  document.getElementById('big').textContent=n;
+  if(n%5===0)ArcadeAudio.sfx('click');
+});
+btn.addEventListener('click',start);
+</script>
+</body>
+</html>

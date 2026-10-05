@@ -73,9 +73,10 @@ function finish(){
   ArcadeAudio.stopBgm();
   ArcadeAudio.sfx('win');
   const score=Math.max(100,1000-(moves-8)*20-seconds*2);
+  const grade=seconds<=25?'S':seconds<=40?'A':seconds<=60?'B':'C';
   ArcadeBridge.submitScore(score);
   const b=document.createElement('button');
-  b.textContent=`🏆 完成！${moves} 步 / ${seconds}s · 得分 ${score} · 点击再来`;
+  b.textContent=`🏆 完成！${moves} 步 / ${seconds}s · 评级 ${grade} · 得分 ${score} · 点击再来`;
   b.onclick=newGame;
   document.body.appendChild(b);
 }

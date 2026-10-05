@@ -129,3 +129,19 @@ body {
     border-radius: inherit;
   }
 }
+
+/* 键盘导航可见性：Tab 聚焦时显示霓虹描边 */
+:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 用户偏好减少动态：关闭非必要动画 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

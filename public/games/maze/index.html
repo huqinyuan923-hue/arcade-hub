@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>迷宫寻宝</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#a855f7;text-shadow:0 0 10px rgba(168,85,247,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(168,85,247,.4);border-radius:10px;max-width:92vw;}
+  .btns{display:flex;gap:8px;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #a855f7;color:#e9d5ff;padding:8px 22px;border-radius:10px;cursor:pointer;font-size:14px;}
+  p.tip{color:#64748b;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<h1>🌀 迷宫寻宝</h1>
+<div class="hud"><span>关卡 <b id="lv">1</b></span><span>时间 <b id="time">0</b>s</span><span>步数 <b id="steps">0</b></span><span>最高关 <b id="hi">0</b></span></div>
+<canvas id="cv" width="440" height="440"></canvas>
+<div class="btns">
+  <button id="btnNew">新迷宫</button>
+</div>
+<p class="tip">方向键 / WASD / 滑动 移动 · 🏆 是出口，走过通道去拿它 · 迷宫随机生成，越深越大</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const N=15;
+let maze,px,py,exit,level=1,seconds=0,timer,playing=false,steps=0;
+let hi=+(localStorage.getItem('amazehi')||0);
+document.getElementById('hi').textContent=hi;
+
+function gen(){
+  // 递归回溯生成完美迷宫：1=墙 0=路
+  maze=Array.from({length:N},()=>Array(N).fill(1));
+  const stack=[[1,1]];
+  maze[1][1]=0;
+  while(stack.length){
+    const [x,y]=stack[stack.length-1];
+    const dirs=[[2,0],[-2,0],[0,2],[0,-2]].sort(()=>Math.random()-.5);
+    let carved=false;
+    for(const [dx,dy] of dirs){
+      const nx=x+dx,ny=y+dy;
+      if(nx>0&&nx<N-1&&ny>0&&ny<N-1&&maze[ny][nx]===1){
+        maze[ny][nx]=0;maze[y+dy/2][x+dx/2]=0;
+        stack.push([nx,ny]);carved=true;break;
+      }
+    }
+    if(!carved)stack.pop();
+  }
+  px=1;py=1;
+  exit=[N-2,N-2];
+  maze[N-2][N-2]=0;
+}
+function newLevel(){
+  gen();
+  seconds=0;steps=0;
+  document.getElementById('steps').textContent=0;
+  clearInterval(timer);
+  timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
+  playing=true;
+  document.getElementById('lv').textContent=level;
+  draw();
+}
+function move(dx,dy){
+  if(!playing)return;
+  const nx=px+dx,ny=py+dy;
+  if(maze[ny]&&maze[ny][nx]===0){
+    px=nx;py=ny;steps++;
+    document.getElementById('steps').textContent=steps;
+    ArcadeAudio.sfx('move');
+    draw();
+    if(px===exit[0]&&py===exit[1])winLevel();
+  }
+}
+function winLevel(){
+  playing=false;clearInterval(timer);
+  ArcadeAudio.sfx('levelup');
+  const score=level*100+Math.max(0,120-seconds*2);
+  ArcadeBridge.submitScore(score);
+  if(level>hi){hi=level;localStorage.setItem('amazehi',hi);document.getElementById('hi').textContent=hi;}
+  level++;
+  document.getElementById('lv').textContent=level;
+  draw();
+  ctx.fillStyle='rgba(7,5,16,.7)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#a3e635';ctx.font='bold 22px system-ui';ctx.textAlign='center';
+  ctx.fillText(`🏁 第 ${level-1} 关通过！+${score}`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('点击任意处进入更深一层',cv.width/2,cv.height/2+18);
+  cv.addEventListener('click',()=>{if(!playing)newLevel();},{once:true});
+}
+function draw(){
+  const S=cv.width/N;
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(maze[y][x]){ctx.fillStyle='#4a3f78';ctx.fillRect(x*S,y*S,S-1,S-1);}
+  }
+  // 出口
+  ctx.font=`${S*0.8}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🏆',exit[0]*S+S/2,exit[1]*S+S/2);
+  // 玩家
+  ctx.fillStyle='#22d3ee';ctx.shadowColor='#22d3ee';ctx.shadowBlur=10;
+  ctx.beginPath();ctx.arc(px*S+S/2,py*S+S/2,S/2-3,0,7);ctx.fill();
+  ctx.shadowBlur=0;
+}
+addEventListener('keydown',e=>{
+  const map={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]};
+  const m=map[e.key];
+  if(m){e.preventDefault();move(m[0],m[1]);}
+});
+// 触摸滑动
+let ts=null;
+addEventListener('touchstart',e=>ts=e.touches[0],{passive:true});
+addEventListener('touchend',e=>{
+  if(!ts)return;
+  const dx=e.changedTouches[0].clientX-ts.clientX,dy=e.changedTouches[0].clientY-ts.clientY;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+  Math.abs(dx)>Math.abs(dy)?move(Math.sign(dx),0):move(0,Math.sign(dy));
+  ts=null;
+},{passive:true});
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');newLevel();});
+newLevel();
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>

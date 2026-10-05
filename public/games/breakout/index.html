@@ -19,7 +19,7 @@
 </head>
 <body>
 <h1>🧊 霓虹打砖块</h1>
-<div class="hud"><span>分数 <b id="score">0</b></span><span>生命 <b id="lives">3</b></span></div>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>生命 <b id="lives">3</b></span><span>最高 <b id="hi">0</b></span><span style="color:#64748b;">P=暂停</span></div>
 <canvas id="cv" width="480" height="360"></canvas>
 <button id="btnRestart">重新开始</button>
 <p class="tip">移动鼠标 / 触摸拖动 / ←→键 控制挡板 · 清空全部砖块获胜（+500）</p>
@@ -47,7 +47,13 @@ function resetLevel(){
   ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
   ctx.fillText('点击 / 按空格 发球',cv.width/2,cv.height/2+30);
 }
-function hud(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent=lives;}
+function hud(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('lives').textContent=lives;
+  const hi=+(localStorage.getItem('abreakhi')||0);
+  document.getElementById('hi').textContent=hi;
+  if(score>hi)localStorage.setItem('abreakhi',score);
+}
 function launch(){
   if(running||ended)return;
   running=true;

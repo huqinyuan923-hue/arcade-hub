@@ -100,8 +100,16 @@ export async function getRelatedGames(game: Game, limit = 6): Promise<GameWithRa
     .limit(limit);
 }
 
-export async function getTopScores(gameId: number, limit = 10) {
+export async function getPersonalBest(gameId: number, userId: number): Promise<number> {
   const db = getDb();
+  const rows = await db
+    .select({ best: sql<number>`coalesce(max(${scores.score}), 0)`.mapWith(Number) })
+    .from(scores)
+    .where(and(eq(scores.gameId, gameId), eq(scores.userId, userId)));
+  return rows[0]?.best ?? 0;
+}
+
+export async function getTopScores(gameId: number, limit = 10) {  const db = getDb();
   return db
     .select({
       username: users.username,

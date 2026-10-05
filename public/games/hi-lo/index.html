@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>高低猜牌</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#fb923c;text-shadow:0 0 10px rgba(251,146,60,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #table{display:flex;gap:22px;align-items:center;}
+  .card{width:110px;height:154px;border-radius:12px;background:linear-gradient(135deg,#fff,#cbd5e1);color:#0d0b1e;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.45);}
+  .card .rank{font-size:44px;line-height:1;}
+  .card .suit{font-size:34px;}
+  .card.red{color:#dc2626;}
+  .card.back{background:repeating-linear-gradient(45deg,#7c3aed,#7c3aed 8px,#4a3f78 8px,#4a3f78 16px);}
+  .card.back::after{content:'ARC';color:rgba(255,255,255,.35);font-size:22px;letter-spacing:2px;}
+  .guess{display:flex;gap:12px;}
+  .guess button{width:96px;padding:12px 0;font-size:17px;border-radius:12px;cursor:pointer;border:1px solid #22d3ee;background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));color:#d9fbff;}
+  #msg{min-height:24px;font-size:16px;text-align:center;}
+  #streakN{font-size:60px;font-weight:800;color:#facc15;font-family:ui-monospace,monospace;}
+</style>
+</head>
+<body>
+<h1>🃏 高低猜牌</h1>
+<div class="hud"><span>最高连胜 <b id="hi">0</b></span><span>筹码 <b id="chips">100</b></span></div>
+<div id="table">
+  <div class="card" id="cur">?</div>
+  <div id="streakN">0</div>
+  <div class="card back" id="nxt"></div>
+</div>
+<div class="guess">
+  <button id="btnHi">▲ 更大</button>
+  <button id="btnEq">● 相同</button>
+  <button id="btnLo">▼ 更小</button>
+</div>
+<p id="msg">猜下一张牌比当前大 / 小 / 相同 · 猜对连胜 +1，翻倍计分 · 猜错连胜清零</p>
+<script>
+const SUITS=[{s:'♠',red:false},{s:'♥',red:true},{s:'♦',red:true},{s:'♣',red:false}];
+const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+let cur,next,streak=0,locked=false;
+let hi=+(localStorage.getItem('ahilohi')||0);
+let chips=100;
+document.getElementById('hi').textContent=hi;
+const rv=r=>RANKS.indexOf(r)+1;
+
+function drawCard(el,c){
+  el.className='card'+(c.red?' red':'');
+  el.innerHTML=`<span class="rank">${c.r}</span><span class="suit">${c.suit}</span>`;
+}
+function randomCard(){const i=Math.random()*13|0;const s=SUITS[Math.random()*4|0];return {r:RANKS[i],suit:s.s,red:s.red,v:i+1};}
+function flip(){
+  locked=true;
+  drawCard(document.getElementById('nxt'),next);
+  ArcadeAudio.sfx('flip');
+  setTimeout(judge,420);
+}
+function judge(){
+  const a=cur.v,b=next.v;
+  let ok=null;
+  if(b>a&&pressed==='hi')ok=true;
+  else if(b<a&&pressed==='lo')ok=true;
+  else if(b===a&&pressed==='eq')ok=true;
+  else if(b!==a&&pressed!=='eq')ok=false;
+  else ok=false;
+  if(ok){
+    streak++;
+    chips+=streak*5;
+    ArcadeAudio.sfx(streak>=3?'levelup':'score');
+    document.getElementById('streakN').textContent=streak;
+    document.getElementById('msg').style.color='#a3e635';
+    document.getElementById('msg').textContent=`✅ ${cur.r} → ${next.r} 对了！连胜 ${streak}`;
+    if(streak>hi){hi=streak;localStorage.setItem('ahilohi',hi);document.getElementById('hi').textContent=hi;}
+  }else{
+    ArcadeAudio.stopBgm();
+    ArcadeAudio.sfx('over');
+    document.getElementById('streakN').textContent='0';
+    document.getElementById('msg').style.color='#f472b6';
+    document.getElementById('msg').textContent=`❌ ${cur.r} → ${next.r}，连胜终结于 ${streak}`;
+    ArcadeBridge.submitScore(streak*50);
+    streak=0;
+  }
+  document.getElementById('chips').textContent=chips;
+  cur=next;
+  setTimeout(()=>{
+    drawCard(document.getElementById('cur'),cur);
+    next=randomCard();
+    const nEl=document.getElementById('nxt');
+    nEl.className='card back';nEl.innerHTML='';
+    pressed=null;locked=false;
+  },700);
+}
+let pressed=null;
+document.getElementById('btnHi').addEventListener('click',()=>{if(!locked&&pressed===null){pressed='hi';flip();}});
+document.getElementById('btnLo').addEventListener('click',()=>{if(!locked&&pressed===null){pressed='lo';flip();}});
+document.getElementById('btnEq').addEventListener('click',()=>{if(!locked&&pressed===null){pressed='eq';flip();}});
+cur=randomCard();next=randomCard();
+drawCard(document.getElementById('cur'),cur);
+ArcadeAudio.bgm('chill');
+</script>
+</body>
+</html>

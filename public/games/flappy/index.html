@@ -68,11 +68,12 @@ function die(){
   dead=true;
   ArcadeAudio.stopBgm();
   ArcadeAudio.sfx('explode');
-  if(score>hi){hi=score;localStorage.setItem('aflappyhi',hi);document.getElementById('hi').textContent=hi;}
+  const isNewBest=score>hi;
+  if(isNewBest){hi=score;localStorage.setItem('aflappyhi',hi);document.getElementById('hi').textContent=hi;}
   ArcadeBridge.submitScore(score);
   ctx.fillStyle='rgba(7,5,16,.8)';ctx.fillRect(0,0,cv.width,cv.height);
   ctx.fillStyle='#f472b6';ctx.font='bold 26px system-ui';ctx.textAlign='center';
-  ctx.fillText(`游戏结束：${score} 分`,cv.width/2,cv.height/2-10);
+  ctx.fillText(`游戏结束：${score} 分${isNewBest&&score>0?' 🎉新纪录':''}`,cv.width/2,cv.height/2-10);
   ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
   ctx.fillText('点击 / 空格 再来一局',cv.width/2,cv.height/2+20);
   const restart=e=>{if(dead){e.preventDefault();dead=false;removeEventListener('keydown',keyRestart);cv.removeEventListener('click',clickRestart);newGame();}};

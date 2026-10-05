@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>瞄准训练</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #cv{background:#120f28;border:1px solid rgba(244,114,182,.4);border-radius:10px;max-width:92vw;cursor:crosshair;touch-action:none;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #f472b6;color:#fce7f3;padding:9px 26px;border-radius:10px;cursor:pointer;font-size:15px;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;text-align:center;}
+</style>
+</head>
+<body>
+<h1>🎯 瞄准训练</h1>
+<div class="hud"><span>命中 <b id="hits">0</b></span><span>剩余 <b id="t">20.0</b>s</span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="480" height="360"></canvas>
+<button id="btnStart">开始（20 秒）</button>
+<p id="msg">点中靶心 +10 · 越小越快的目标分越高 · 空点 -2</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),msg=document.getElementById('msg');
+let targets,raf,hits,miss,t0,timer,running=false,frame=0;
+let hi=+(localStorage.getItem('aaimhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function spawn(){
+  const r=12+Math.random()*22; // 半径越小越难
+  targets.push({x:30+r+Math.random()*(cv.width-60-2*r),y:30+r+Math.random()*(cv.height-60-2*r),r,life:70+Math.random()*50,age:0,vx:(Math.random()-.5)*1.6,vy:(Math.random()-.5)*1.6});
+}
+function newGame(){
+  targets=[];hits=0;miss=0;frame=0;
+  document.getElementById('hits').textContent=0;
+  document.getElementById('t').textContent='20.0';
+  msg.textContent='';
+  cancelAnimationFrame(raf);loop();
+}
+function start(){
+  if(running)return;
+  running=true;t0=Date.now();
+  hits=0;miss=0;targets=[];
+  ArcadeAudio.bgm('bright');
+  msg.textContent='';
+  timer=setInterval(()=>{
+    const el=(Date.now()-t0)/1000;
+    document.getElementById('t').textContent=Math.max(0,20-el).toFixed(1);
+    if(el>=20)finish();
+  },50);
+}
+function finish(){
+  running=false;clearInterval(timer);
+  targets=[];
+  ArcadeAudio.stopBgm();
+  const acc=hits+miss>0?Math.round(hits/(hits+miss)*100):0;
+  if(hits>hi){hi=hits;localStorage.setItem('aaimhi',hi);document.getElementById('hi').textContent=hi;}
+  const score=Math.max(10,hits*10+acc);
+  ArcadeAudio.sfx(hits>25?'win':'over');
+  ArcadeBridge.submitScore(score);
+  msg.style.color=hits>25?'#a3e635':'#f472b6';
+  msg.textContent=`⏰ 时间到！命中 ${hits} · 正确率 ${acc}% · 得分 ${score}`;
+  document.getElementById('btnStart').textContent='再来一轮';
+}
+function loop(){
+  frame++;
+  update();draw();
+  raf=requestAnimationFrame(loop);
+}
+function update(){
+  if(!running)return;
+  if(frame%Math.max(18,40-frame/20)===0)spawn();
+  targets.forEach(t=>{
+    t.age++;t.x+=t.vx;t.y+=t.vy;
+    if(t.x<t.r||t.x>cv.width-t.r)t.vx*=-1;
+    if(t.y<t.r||t.y>cv.height-t.r)t.vy*=-1;
+  });
+  targets=targets.filter(t=>t.age<t.life);
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  // 网格
+  ctx.strokeStyle='rgba(244,114,182,.08)';
+  for(let i=0;i<cv.width;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,cv.height);ctx.stroke();}
+  targets.forEach(t=>{
+    const remain=1-t.age/t.life;
+    ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,7);
+    ctx.fillStyle=`rgba(244,114,182,${.25+remain*.5})`;ctx.fill();
+    ctx.strokeStyle='#f472b6';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.arc(t.x,t.y,t.r*0.45,0,7);
+    ctx.fillStyle='#facc15';ctx.fill();
+  });
+  if(running){
+    ctx.fillStyle='#94a3b8';ctx.font='12px system-ui';ctx.textAlign='right';
+    ctx.fillText(`目标 ${targets.length}`,cv.width-8,16);
+  }
+}
+cv.addEventListener('pointerdown',e=>{
+  if(!running)return;
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(cv.width/r.width),y=(e.clientY-r.top)*(cv.height/r.height);
+  // 命中最上层（最后一个）命中判定
+  for(let i=targets.length-1;i>=0;i--){
+    const t=targets[i];
+    if(Math.hypot(x-t.x,y-t.y)<=t.r){
+      targets.splice(i,1);
+      hits++;
+      document.getElementById('hits').textContent=hits;
+      ArcadeAudio.sfx(t.r<20?'score':'brick');
+      return;
+    }
+  }
+  miss++;
+  ArcadeAudio.sfx('miss');
+});
+document.getElementById('btnStart').addEventListener('click',()=>{newGame();start();});
+newGame();
+</script>
+</body>
+</html>

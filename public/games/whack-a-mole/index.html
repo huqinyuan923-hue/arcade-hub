@@ -27,7 +27,7 @@
 <button id="btnStart">开始游戏（30 秒）</button>
 <script>
 const gridEl=document.getElementById('grid');
-let score,time,timer,popTimer,playing=false;
+let score,time,timer,popTimer,playing=false,swings=0;
 const holes=[];
 
 for(let i=0;i<9;i++){
@@ -60,6 +60,7 @@ function pop(){
 }
 function hit(i){
   if(!playing)return;
+  swings++;
   const h=holes[i];
   if(h.classList.contains('up')&&!h.classList.contains('hit')){
     h.classList.add('hit');
@@ -75,10 +76,12 @@ function end(){
   ArcadeAudio.stopBgm();
   ArcadeAudio.sfx('over');
   holes.forEach(h=>h.classList.remove('up'));
+  const acc=swings>0?Math.round(score/10/swings*100):0;
   ArcadeBridge.submitScore(score);
   const b=document.getElementById('btnStart');
   b.style.display='';
-  b.textContent=`🎮 时间到！得分 ${score} · 再来一局`;
+  b.textContent=`🎮 时间到！得分 ${score} · 命中率 ${acc}% · 再来一局`;
+  swings=0;
 }
 document.getElementById('btnStart').addEventListener('click',start);
 </script>

@@ -12,6 +12,7 @@ import {
 import {
   getFavoriteCount,
   getGameBySlug,
+  getPersonalBest,
   getRelatedGames,
   getTopScores,
   isFavorited,
@@ -30,6 +31,7 @@ export async function generateMetadata({
   return {
     title: game.title,
     description: game.description,
+    keywords: [game.title, game.category, "在线小游戏", "Arcade Hub"],
     robots: game.status !== "published" ? { index: false, follow: false } : undefined,
     openGraph: {
       title: game.title,
@@ -49,11 +51,12 @@ export default async function GameDetailPage({
   if (!game || game.status !== "published") notFound();
 
   const user = await getSessionUser();
-  const [topScores, favCount, related, favorited] = await Promise.all([
+  const [topScores, favCount, related, favorited, personalBest] = await Promise.all([
     game.hasScore ? getTopScores(game.id, 10) : Promise.resolve([]),
     getFavoriteCount(game.id),
     getRelatedGames(game, 6),
     user ? isFavorited(user.id, game.id) : Promise.resolve(false),
+    user && game.hasScore ? getPersonalBest(game.id, user.id) : Promise.resolve(null),
   ]);
 
   // Next.js 不解析目录索引：站内游戏必须指向完整 index.html，尾部斜杠路径会 404
@@ -89,6 +92,9 @@ export default async function GameDetailPage({
                 <span className="chip px-2 py-0.5 rounded-md">{game.category}</span>
                 <span>▶ 已游玩 {formatPlays(game.plays)} 次</span>
                 <span>❤️ {favCount} 人收藏</span>
+                {personalBest !== null && (
+                  <span className="text-neon-yellow">🏅 你的最高 {personalBest}</span>
+                )}
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">

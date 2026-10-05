@@ -104,6 +104,7 @@ export default function GameFrame({
           ref={frameRef}
           src={src}
           title={title}
+          aria-label={`${title} 游戏区域`}
           className="absolute inset-0 w-full h-full outline-none"
           sandbox={
             sandbox ??

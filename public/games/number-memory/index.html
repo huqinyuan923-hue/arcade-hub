@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>记忆数字</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #stage{display:flex;align-items:center;justify-content:center;width:min(92vw,380px);height:150px;background:#1a1633;border-radius:14px;border:1px solid rgba(34,211,238,.3);font-size:44px;font-weight:800;font-family:ui-monospace,monospace;letter-spacing:6px;}
+  #stage.small{font-size:30px;letter-spacing:3px;}
+  input{background:#221d44;border:1px solid rgba(34,211,238,.4);color:#e7e6f5;border-radius:10px;padding:10px 16px;font-size:22px;font-family:ui-monospace,monospace;text-align:center;width:min(80vw,300px);outline:none;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:9px 26px;border-radius:10px;cursor:pointer;font-size:15px;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<h1>🧠 记忆数字</h1>
+<div class="hud"><span>关卡 <b id="level">1</b></span><span>最高 <b id="hi">1</b></span></div>
+<div id="stage">?</div>
+<input id="inp" style="display:none;" autocomplete="off">
+<button id="btnStart">开始挑战</button>
+<p id="msg">数字会越来越长，看你能记住几位</p>
+<script>
+const stage=document.getElementById('stage'),inp=document.getElementById('inp'),msg=document.getElementById('msg'),btn=document.getElementById('btnStart');
+let level,target,phase;
+let hi=+(localStorage.getItem('anumhi')||1);
+document.getElementById('hi').textContent=hi;
+
+function start(){
+  level=1;
+  document.getElementById('level').textContent=1;
+  next();
+}
+function next(){
+  phase='show';
+  btn.style.display='none';
+  target='';
+  const digits=level+2;
+  for(let i=0;i<digits;i++)target+=Math.random()*10|0;
+  msg.textContent=`📏 这次要记 ${digits} 位数字`;
+  msg.style.color='#94a3b8';
+  stage.classList.toggle('small',target.length>7);
+  stage.textContent=target;
+  ArcadeAudio.sfx('flip');
+  msg.textContent='👀 记住它…';
+  setTimeout(()=>{
+    stage.textContent='?';
+    phase='input';
+    inp.value='';
+    inp.style.display='';
+    inp.focus();
+    msg.textContent='⌨️ 输入你记住的数字，回车提交';
+  },1200+level*400);
+}
+inp.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&phase==='input')check();
+});
+function check(){
+  const v=inp.value.trim();
+  if(v===target){
+    level++;
+    document.getElementById('level').textContent=level;
+    ArcadeAudio.sfx('levelup');
+    msg.style.color='#a3e635';
+    msg.textContent='✅ 正确！进入第 '+(level)+' 关';
+    inp.style.display='none';
+    if(level>hi){hi=level;localStorage.setItem('anumhi',hi);document.getElementById('hi').textContent=hi;}
+    ArcadeBridge.submitScore(level);
+    setTimeout(next,800);
+  }else{
+    phase='over';
+    inp.style.display='none';
+    stage.classList.toggle('small',target.length>7);
+    stage.textContent=target;
+    ArcadeAudio.stopBgm();
+    ArcadeAudio.sfx('over');
+    msg.style.color='#f472b6';
+    msg.textContent=`❌ 记错了，正确是 ${target} · 坚持到第 ${level} 关`;
+    ArcadeBridge.submitScore(level);
+    btn.style.display='';
+    btn.textContent='再来一局';
+  }
+}
+btn.addEventListener('click',start);
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>

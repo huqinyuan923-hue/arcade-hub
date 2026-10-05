@@ -20,7 +20,7 @@
 </head>
 <body>
 <h1>🐍 霓虹贪吃蛇</h1>
-<div class="hud"><span>分数 <b id="score">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>长度 <b id="len">3</b></span><span>最高 <b id="hi">0</b></span></div>
 <canvas id="cv" width="400" height="400"></canvas>
 <div class="modes" style="display:flex;gap:8px;">
   <button data-v="170" style="background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;border-radius:8px;padding:4px 14px;cursor:pointer;font-size:12px;">🐢 慢速</button>
@@ -64,6 +64,7 @@ function tick(){
   snake.unshift(head);
   if(head.x===food.x&&head.y===food.y){
     score+=10;document.getElementById('score').textContent=score;
+    document.getElementById('len').textContent=snake.length+1;
     ArcadeAudio.sfx('eat');
     placeFood();
     if(score%50===0){clearInterval(timer);speed=Math.max(60,baseSpeed-(score/50)*15);timer=setInterval(tick,speed);ArcadeAudio.sfx('levelup');}

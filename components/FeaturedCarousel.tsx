@@ -7,12 +7,21 @@ import type { GameWithRating } from "@/lib/games";
 export default function FeaturedCarousel({ games }: { games: GameWithRating[] }) {
   const [idx, setIdx] = useState(0);
   const [hover, setHover] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (games.length < 2 || hover) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (games.length < 2 || hover || reducedMotion) return;
     const t = window.setInterval(() => setIdx((i) => (i + 1) % games.length), 6000);
     return () => window.clearInterval(t);
-  }, [games.length, hover]);
+  }, [games.length, hover, reducedMotion]);
 
   if (!games.length) return null;
   const game = games[idx];

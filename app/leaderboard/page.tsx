@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "排行榜",
+  description: "Arcade Hub 全站游戏成绩排行榜：玩家总榜、各游戏最高分纪录与每款游戏 Top 10 成绩。",
 };
 
 async function getPlayerBoard() {

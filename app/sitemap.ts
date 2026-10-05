@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...games.map((g) => ({
       url: `${BASE}/game/${g.slug}`,
       changeFrequency: "weekly" as const,
-      priority: 0.6,
+      priority: g.featured ? 0.8 : 0.5,
     })),
   ];
 }
