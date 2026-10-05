@@ -23,6 +23,11 @@ export default function GameCard({ game }: { game: GameWithRating }) {
         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md chip text-[11px]">
           {game.category}
         </span>
+        {"featured" in game && (game as { featured?: boolean }).featured && (
+          <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-neon-cyan/20 border border-neon-cyan/50 text-[11px] text-neon-cyan">
+            🔥 精选
+          </span>
+        )}
         {game.sourceType === "iframe" && (
           <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/50 border border-white/20 text-[11px] text-slate-200">
             第三方

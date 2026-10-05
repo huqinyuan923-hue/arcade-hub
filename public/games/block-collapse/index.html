@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>同色消除</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#a855f7;text-shadow:0 0 10px rgba(168,85,247,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(12,26px)/repeat(12,26px);gap:2px;background:#0a0819;padding:6px;border-radius:10px;border:1px solid rgba(168,85,247,.4);}
+  .b{border-radius:5px;cursor:pointer;transition:opacity .08s;}
+  .b.sel{outline:2px solid #fff;outline-offset:-2px;}
+  button.new{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #a855f7;color:#e9d5ff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  #msg{min-height:22px;font-size:14px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<h1>🧱 同色消除</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>剩余 <b id="left">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<div id="grid"></div>
+<p id="msg">点击 2 个以上相连的同色方块整组消除 · 组越大分越高（n²×5）· 无可消即结算</p>
+<button class="new" id="btnNew">新一局</button>
+<script>
+const W=12,H=12,PALETTE=['#f472b6','#22d3ee','#a3e635','#facc15','#a855f7'];
+const gridEl=document.getElementById('grid'),msg=document.getElementById('msg');
+let g,score,locked=false;
+let hi=+(localStorage.getItem('acollapsehi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  g=Array.from({length:H},()=>Array.from({length:W},()=>PALETTE[Math.random()*PALETTE.length|0]));
+  score=0;
+  document.getElementById('score').textContent=0;
+  render();
+}
+function groupOf(x,y){
+  const color=g[y][x];
+  if(!color)return [];
+  const seen=new Set([y*W+x]),out=[[x,y]],stack=[[x,y]];
+  while(stack.length){
+    const [cx,cy]=stack.pop();
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cx+dx,ny=cy+dy,j=ny*W+nx;
+      if(nx>=0&&nx<W&&ny>=0&&ny<H&&!seen.has(j)&&g[ny][nx]===color){seen.add(j);out.push([nx,ny]);stack.push([nx,ny]);}
+    }
+  }
+  return out;
+}
+function click(x,y){
+  if(locked)return;
+  const grp=groupOf(x,y);
+  if(grp.length<2){ArcadeAudio.sfx('miss');return;}
+  locked=true;
+  const gain=grp.length*grp.length*5;
+  score+=gain;
+  document.getElementById('score').textContent=score;
+  ArcadeAudio.sfx(grp.length>=6?'levelup':'brick');
+  grp.forEach(([cx,cy])=>g[cy][cx]=null);
+  render(gain,grp.length);
+  setTimeout(()=>{
+    // 重力下落
+    for(let c=0;c<W;c++){
+      const col=[];
+      for(let r=H-1;r>=0;r--)if(g[r][c])col.push(g[r][c]);
+      for(let r=H-1,k=0;r>=0;r--,k++)g[r][c]=col[k]||null;
+    }
+    render();
+    locked=false;
+    // 结束判定：没有任何 >=2 的组
+    let moves=false;
+    for(let r=0;r<H&&!moves;r++)for(let c=0;c<W&&!moves;c++)if(g[r][c]&&groupOf(c,r).length>=2)moves=true;
+    if(!moves){
+      const remain=g.flat().filter(Boolean).length;
+      score+=remain===0?500:0;
+      if(score>hi){hi=score;localStorage.setItem('acollapsehi',hi);document.getElementById('hi').textContent=hi;}
+      ArcadeBridge.submitScore(score);
+      ArcadeAudio.sfx(remain===0?'win':'over');
+      msg.style.color=remain===0?'#a3e635':'#f472b6';
+      msg.textContent=remain===0?`🏆 全部清空！+500 · 总分 ${score}`:`结算：剩 ${remain} 块 · 总分 ${score}`;
+    }
+  },140);
+}
+function render(gain,grpN){
+  gridEl.innerHTML='';
+  let left=0;
+  g.forEach((row,y)=>row.forEach((c,x)=>{
+    const d=document.createElement('div');
+    d.className='b';
+    d.style.background=c||'transparent';
+    if(c){left++;d.addEventListener('click',()=>click(x,y));}
+    gridEl.appendChild(d);
+  }));
+  document.getElementById('left').textContent=left;
+  if(gain)msg.style.color='#94a3b8',msg.textContent=`💥 消掉 ${grpN} 块 +${gain} 分`;
+}
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');msg.textContent='';newGame();});
+newGame();
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>

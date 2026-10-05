@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>颜色反应</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #word{font-size:64px;font-weight:900;height:100px;display:flex;align-items:center;font-family:system-ui,sans-serif;}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .btns button{width:104px;padding:16px 0;font-size:17px;font-weight:700;border-radius:14px;cursor:pointer;color:#0d0b1e;border:none;}
+  #msg{min-height:24px;font-size:15px;color:#94a3b8;}
+  button.start{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #f472b6;color:#fce7f3;padding:9px 26px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>🌈 颜色反应</h1>
+<div class="hud"><span>得分 <b id="score">0</b></span><span>剩余 <b id="t">30</b>s</span><span>最高 <b id="hi">0</b></span></div>
+<div id="word">准备…</div>
+<div class="btns">
+  <button data-c="red" style="background:#f87171;">红色</button>
+  <button data-c="green" style="background:#a3e635;">绿色</button>
+  <button data-c="blue" style="background:#60a5fa;">蓝色</button>
+  <button data-c="yellow" style="background:#facc15;">黄色</button>
+</div>
+<p id="msg">⚠️ 判断的是【字的颜色】，不是字的含义！例如绿色的「红」字，应点【绿色】</p>
+<button class="start" id="btnStart">开始（30 秒）</button>
+<script>
+const COLORS={red:'#f87171',green:'#a3e635',blue:'#60a5fa',yellow:'#facc15'};
+const NAMES={red:'红',green:'绿',blue:'蓝',yellow:'黄'};
+const wordEl=document.getElementById('word'),msg=document.getElementById('msg');
+let cur,running=false,score=0,t0,timer,combo=0;
+let hi=+(localStorage.getItem('astroophi')||0);
+document.getElementById('hi').textContent=hi;
+
+function next(){
+  const keys=Object.keys(COLORS);
+  cur=keys[Math.random()*keys.length|0];
+  wordEl.textContent=NAMES[cur];
+  // 字体颜色 60% 概率与含义不一致（制造干扰）
+  const mismatch=Math.random()<0.6;
+  const colorKey=mismatch?keys.filter(k=>k!==cur)[Math.random()*3|0]:cur;
+  wordEl.style.color=COLORS[colorKey];
+}
+function start(){
+  if(running)return;
+  running=true;score=0;t0=Date.now();
+  document.getElementById('score').textContent=0;
+  document.getElementById('btnStart').style.display='none';
+  ArcadeAudio.bgm('pulse');
+  next();
+  timer=setInterval(()=>{
+    const left=Math.max(0,30-Math.round((Date.now()-t0)/1000));
+    document.getElementById('t').textContent=left;
+    if(left<=0)finish();
+  },200);
+}
+function answer(c){
+  if(!running)return;
+  if(c===cur){
+    score+=10+combo;
+    combo++;
+    document.getElementById('score').textContent=score;
+    ArcadeAudio.sfx('score');
+    next();
+  }else{
+    combo=0;
+    ArcadeAudio.sfx('miss');
+    wordEl.animate([{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:180});
+  }
+}
+function finish(){
+  running=false;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  if(score>hi){hi=score;localStorage.setItem('astroophi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeAudio.sfx(score>200?'win':'over');
+  ArcadeBridge.submitScore(score);
+  wordEl.textContent='结束';
+  wordEl.style.color='#e7e6f5';
+  msg.style.color=score>200?'#a3e635':'#f472b6';
+  msg.textContent=`⏰ 时间到！得分 ${score}${score>200?' 🎉':' · 再练练'}`;
+  document.getElementById('btnStart').style.display='';
+  document.getElementById('btnStart').textContent='再来一轮';
+}
+document.querySelectorAll('.btns button').forEach(b=>b.addEventListener('click',()=>answer(b.dataset.c)));
+document.getElementById('btnStart').addEventListener('click',start);
+</script>
+</body>
+</html>

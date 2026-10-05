@@ -10,5 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0d0b1e",
     theme_color: "#22d3ee",
     icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+    shortcuts: [
+      { name: "游戏大厅", url: "/games" },
+      { name: "排行榜", url: "/leaderboard" },
+    ],
   };
 }

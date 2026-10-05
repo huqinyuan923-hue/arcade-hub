@@ -103,10 +103,10 @@ export default async function LeaderboardPage({
                 <li key={p.username} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
                   <span
                     className={`w-7 text-center font-bold ${
-                      i === 0 ? "text-neon-yellow text-base" : i < 3 ? "text-slate-300" : "text-slate-500"
+                      i === 0 ? "text-neon-yellow text-base" : i === 1 ? "text-slate-200" : i === 2 ? "text-amber-600" : "text-slate-500"
                     }`}
                   >
-                    {i === 0 ? "👑" : i + 1}
+                    {["👑", "🥈", "🥉"][i] ?? i + 1}
                   </span>
                   <span className="flex-1 truncate">{p.username}</span>
                   <span className="text-xs text-slate-500">{p.gameCount} 款游戏</span>

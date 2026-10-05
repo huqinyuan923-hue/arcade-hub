@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const db = getDb();
   const user = await getSessionUser();
-  const [featured, newest, hottest, categories, totals, recent] = await Promise.all([
+  const [featured, newest, hottest, categories, totals, recent, gameCount] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
     listGames({ sort: "hot", limit: 8 }),
@@ -31,8 +31,10 @@ export default async function HomePage() {
           .orderBy(desc(playEvents.createdAt))
           .limit(6)
       : Promise.resolve([]),
+    db.select({ n: games.id }).from(games),
   ]);
   const totalPlays = totals[0]?.total ?? 0;
+  const totalGames = gameCount.length;
   // 去重（同一游戏只保留最近一条）
   const seen = new Set<string>();
   const continueGames = (recent as { slug: string; title: string }[]).filter((g) => {
@@ -50,8 +52,9 @@ export default async function HomePage() {
             ARCADE<span className="text-neon-pink neon-text-pink"> HUB</span>
           </h1>
           <p className="text-slate-300 max-w-xl text-sm sm:text-base">
-            霓虹街机游戏厅 —— 2048、贪吃蛇、俄罗斯方块、打砖块……
-            经典小游戏即点即玩，登录后可收藏、评分、冲击排行榜。
+            霓虹街机游戏厅 —— 站内 {totalGames} 款自研小游戏：
+            2048、贪吃蛇、俄罗斯方块、五子棋、跑酷……
+            全部即点即玩，登录后可收藏、评分、冲击排行榜。
           </p>
           {continueGames.length > 0 && (
             <div className="flex flex-wrap justify-center items-center gap-2 mt-1">

@@ -1,6 +1,6 @@
 # Arcade Hub · 霓虹街机游戏厅
 
-部署在 Vercel 的在线街机游戏门户：站内自带 28 款经典小游戏（全部支持排行榜），用户可注册登录、收藏、评分、提交成绩冲击全站排行榜，管理员有完整的游戏 / 用户 / 数据管理后台。
+部署在 Vercel 的在线街机游戏门户：站内自带 34 款经典小游戏（全部支持排行榜），用户可注册登录、收藏、评分、提交成绩冲击全站排行榜，管理员有完整的游戏 / 用户 / 数据管理后台。
 
 **线上地址**：<https://arcade-hub-nu.vercel.app>（Vercel 默认域名在大陆网络直连可能超时，需代理访问；可绑定自定义域名解决）
 
@@ -30,7 +30,7 @@
 pnpm install
 cp .env.example .env.local   # 填入 DATABASE_URL 与 JWT_SECRET
 pnpm db:push                 # 建表
-pnpm db:seed                 # 管理员 + 28 款游戏 + 演示数据
+pnpm db:seed                 # 管理员 + 34 款游戏 + 演示数据
 pnpm dev                     # http://localhost:3000
 ```
 

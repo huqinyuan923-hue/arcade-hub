@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const games = await listGames({ limit: 200 }).catch(() => []);
   const staticPages = ["", "/games", "/leaderboard", "/login", "/register"].map((p) => ({
     url: `${BASE}${p}`,
+    lastModified: new Date(),
     changeFrequency: "daily" as const,
     priority: p === "" ? 1 : 0.7,
   }));
@@ -16,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...games.map((g) => ({
       url: `${BASE}/game/${g.slug}`,
+      lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: g.featured ? 0.8 : 0.5,
     })),

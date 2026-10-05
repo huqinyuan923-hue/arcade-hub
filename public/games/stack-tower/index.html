@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>叠叠高</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#fb923c;text-shadow:0 0 10px rgba(251,146,60,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#060414;border:1px solid rgba(251,146,60,.4);border-radius:10px;max-width:92vw;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🏗️ 叠叠高</h1>
+<div class="hud"><span>层数 <b id="score">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="360" height="480"></canvas>
+<p class="tip">点击 / 空格 放下方块 · 完美对齐不缩宽度 · 一旦完全脱靶塔就倒了</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=360,H=480,BH=26;
+let stack,cur,dir,speed,score,dead,frame,raf,camY;
+let hi=+(localStorage.getItem('astackhi')||0);
+document.getElementById('hi').textContent=hi;
+const COLORS=['#f472b6','#fb923c','#facc15','#a3e635','#22d3ee','#a855f7'];
+
+function newGame(){
+  stack=[{x:W/2-70,w:140}];
+  cur={x:0,w:140};
+  dir=1;speed=2.6;score=0;dead=false;frame=0;camY=0;
+  document.getElementById('score').textContent=0;
+  cancelAnimationFrame(raf);loop();
+}
+function drop(){
+  if(dead)return;
+  started=true;
+  const top=stack[stack.length-1];
+  const overlapL=Math.max(cur.x,top.x);
+  const overlapR=Math.min(cur.x+cur.w,top.x+top.w);
+  const overlap=overlapR-overlapL;
+  if(overlap<=0){
+    // 完全脱靶
+    dead=true;
+    ArcadeAudio.stopBgm();
+    ArcadeAudio.sfx('explode');
+    if(score>hi){hi=score;localStorage.setItem('astackhi',hi);document.getElementById('hi').textContent=hi;}
+    ArcadeBridge.submitScore(score*10);
+    ctx.fillStyle='rgba(6,4,20,.85)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f472b6';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+    ctx.fillText(`塔倒了！${score} 层`,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+    ctx.fillText('点击画面再来一局',W/2,H/2+20);
+    cv.addEventListener('mousedown',()=>{if(dead)newGame();},{once:true});
+    return;
+  }
+  // 完美对齐奖励（不缩宽度）
+  if(Math.abs(cur.x-top.x)<3){
+    cur.x=top.x;cur.w=top.w;
+    ArcadeAudio.sfx('levelup');
+  }else{
+    ArcadeAudio.sfx('brick');
+    cur.w=overlap;
+  }
+  stack.push({x:overlapL,w:overlap});
+  score++;
+  document.getElementById('score').textContent=score;
+  speed=Math.min(6.5,2.6+score*.12);
+  cur={x:dir>1?0:W-cur.w,w:overlap};
+  dir=-dir;
+}
+function update(){
+  frame++;
+  if(dead)return;
+  cur.x+=dir*speed;
+  if(cur.x<=0){cur.x=0;dir=1;}
+  if(cur.x+cur.w>=W){cur.x=W-cur.w;dir=-1;}
+  // 相机跟随塔顶
+  const topY=H-60-stack.length*BH;
+  const target=topY-H*0.45;
+  if(target<camY)camY+=(target-camY)*.1;
+}
+function draw(){
+  ctx.fillStyle='#060414';ctx.fillRect(0,0,W,H);
+  // 星空
+  ctx.fillStyle='rgba(148,163,255,.3)';
+  for(let i=0;i<24;i++)ctx.fillRect((i*97)%W,((i*211)-camY*.2)%(H+20),1.5,1.5);
+  stack.forEach((b,i)=>{
+    const y=H-60-(i+1)*BH-camY;
+    if(y<-BH||y>H)return;
+    ctx.fillStyle=COLORS[i%COLORS.length];
+    ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=i===stack.length-1?12:0;
+    ctx.beginPath();ctx.roundRect(b.x,y,b.w,BH-3,4);ctx.fill();
+  });
+  ctx.shadowBlur=0;
+  if(!dead){
+    const y=H-60-(stack.length+1)*BH-camY;
+    ctx.fillStyle=COLORS[stack.length%COLORS.length];
+    ctx.globalAlpha=.85;
+    ctx.beginPath();ctx.roundRect(cur.x,y,cur.w,BH-3,4);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+}
+function loop(){
+  if(dead)return;
+  update();draw();
+  raf=requestAnimationFrame(loop);
+}
+let started=false;
+addEventListener('keydown',e=>{
+  if(e.key===' '){e.preventDefault();started=true;drop();}
+});
+cv.addEventListener('mousedown',()=>{started=true;drop();});
+cv.addEventListener('touchstart',e=>{e.preventDefault();started=true;drop();},{passive:false});
+newGame();
+ArcadeAudio.bgm('march');
+</script>
+</body>
+</html>

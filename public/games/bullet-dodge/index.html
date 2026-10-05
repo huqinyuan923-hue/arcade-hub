@@ -23,7 +23,7 @@
 <p class="tip">移动鼠标 / 手指拖动 控制光点 · 躲避弹幕 · 每 15 秒弹幕更密一档</p>
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-let me,bullets,stars,alive,started,frame,wave,t0,timer,raf;
+let me,bullets,stars,alive,started,frame,wave,t0,timer,raf,paused=false;
 let hi=+(localStorage.getItem('adodgehi')||0);
 document.getElementById('hi').textContent=hi;
 
@@ -79,7 +79,7 @@ function spawnPattern(){
 function update(){
   frame++;
   stars.forEach(s=>{s.y+=s.s;if(s.y>cv.height){s.y=0;s.x=Math.random()*cv.width;}});
-  if(!alive)return;
+  if(!alive||paused)return;
   if(frame%Math.max(20,70-wave*8)===0)spawnPattern();
   bullets.forEach(b=>{
     b.x+=b.vx;b.y+=b.vy;
@@ -112,6 +112,11 @@ function draw(){
   ctx.fillStyle='#060414';ctx.fillRect(0,0,cv.width,cv.height);
   ctx.fillStyle='rgba(148,163,255,.35)';
   stars.forEach(s=>ctx.fillRect(s.x,s.y,1.5,1.5));
+  if(paused&&alive){
+    ctx.fillStyle='rgba(6,4,20,.6)';ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#f472b6';ctx.font='bold 20px system-ui';ctx.textAlign='center';
+    ctx.fillText('⏸ 已暂停 · 按 P 继续',cv.width/2,cv.height/2);
+  }
   bullets.forEach(b=>{
     ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);
     ctx.fillStyle=b.c;ctx.shadowColor=b.c;ctx.shadowBlur=8;ctx.fill();
@@ -139,6 +144,9 @@ function moveTo(e){
 }
 function bulletsDead(){return false;}
 cv.addEventListener('mousemove',moveTo);
+addEventListener('keydown',e=>{
+  if((e.key==='p'||e.key==='P')&&alive&&started)paused=!paused;
+});
 cv.addEventListener('touchmove',e=>{e.preventDefault();moveTo(e.touches[0]);},{passive:false});
 cv.addEventListener('touchstart',e=>{e.preventDefault();moveTo(e.touches[0]);},{passive:false});
 newGame();

@@ -29,7 +29,7 @@
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const N=15;
-let maze,px,py,exit,level=1,seconds=0,timer,playing=false,steps=0;
+let maze,px,py,exit,level=1,seconds=0,timer,playing=false,steps=0,paused=false;
 let hi=+(localStorage.getItem('amazehi')||0);
 document.getElementById('hi').textContent=hi;
 
@@ -107,6 +107,8 @@ function draw(){
   ctx.shadowBlur=0;
 }
 addEventListener('keydown',e=>{
+  if((e.key==='p'||e.key==='P')&&playing){paused=!paused;ArcadeAudio.sfx('move');return;}
+  if(paused||!playing)return;
   const map={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]};
   const m=map[e.key];
   if(m){e.preventDefault();move(m[0],m[1]);}

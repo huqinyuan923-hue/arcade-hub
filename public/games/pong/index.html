@@ -24,7 +24,7 @@
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const W=520,H=340,PH=64,PW=10;
-let player,ai,ball,ps,as,playing,ended,speed,raf,keys={};
+let player,ai,ball,ps,as,playing,ended,speed,raf,keys={},paused=false;
 let hi=+(localStorage.getItem('aponghi')||0);
 document.getElementById('hi').textContent=hi;
 
@@ -109,12 +109,19 @@ function draw(){
   }
 }
 function loop(){
-  if(!ended){update();draw();}
+  if(ended)return;
+  if(!paused)update();draw();
+  if(paused){
+    ctx.fillStyle='rgba(7,5,16,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#a3e635';ctx.font='bold 20px system-ui';ctx.textAlign='center';
+    ctx.fillText('⏸ 已暂停 · 按 P 继续',W/2,H/2);
+  }
   raf=requestAnimationFrame(loop);
 }
 addEventListener('keydown',e=>{
   if(e.key==='ArrowUp'||e.key==='w'){keys.up=true;e.preventDefault();}
   if(e.key==='ArrowDown'||e.key==='s'){keys.down=true;e.preventDefault();}
+  if((e.key==='p'||e.key==='P')&&playing&&!ended)paused=!paused;
 });
 addEventListener('keyup',e=>{
   if(e.key==='ArrowUp'||e.key==='w')keys.up=false;

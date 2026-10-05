@@ -20,25 +20,33 @@
   .back{background:linear-gradient(135deg,#312e81,#7c3aed);border:1px solid rgba(167,139,250,.5);}
   .front{background:#181430;border:1px solid rgba(34,211,238,.4);transform:rotateY(180deg);}
   .card3d.done .front{border-color:#a3e635;box-shadow:0 0 12px rgba(163,230,53,.4);}
-  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  .win{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #a3e635;color:#d9f99d;padding:8px 22px;border-radius:10px;cursor:pointer;}
   p.tip{color:#64748b;font-size:12px;}
 </style>
 </head>
 <body>
 <h1>🃏 记忆翻牌</h1>
-<div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span><span>配对 <b id="pairs">0</b>/8</span></div>
+  <div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span><span>配对 <b id="pairs">0</b>/<b id="pairsTotal">8</b></span></div>
 <div id="grid"></div>
-<p class="tip">翻开全部 8 对即获胜 · 步数越少、速度越快，得分越高</p>
+<p class="tip">翻开全部配对即获胜 · 步数越少、速度越快，得分越高</p>
+<div style="display:flex;gap:8px;">
+  <button class="diff" data-pairs="4" style="background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12px;">轻松 4 对</button>
+  <button class="diff on" data-pairs="8" style="background:rgba(124,58,237,.2);border:1px solid #22d3ee;color:#d9fbff;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12px;">标准 8 对</button>
+</div>
 <script>
 const EMOJI=['🎮','🚀','👾','🕹️','💎','⚡','🔥','🌙'];
 const gridEl=document.getElementById('grid');
+let pairCount=8;
 let cards,open,matched,moves,seconds,timer,lock;
 
 function newGame(){
-  const deck=[...EMOJI,...EMOJI].sort(()=>Math.random()-.5);
+  const deck=[...EMOJI.slice(0,pairCount),...EMOJI.slice(0,pairCount)].sort(()=>Math.random()-.5);
   gridEl.innerHTML='';cards=[];open=[];matched=0;moves=0;seconds=0;lock=false;
+  document.querySelector('button.win')?.remove();
+  gridEl.style.gridTemplate=`repeat(4,70px)/repeat(4,70px)`;
   document.getElementById('pairs').textContent=0;
-  clearInterval(timer);
+  document.getElementById('pairsTotal').textContent=pairCount;
+  clearInterval(timer);timer=null;
   document.getElementById('moves').textContent=0;
   document.getElementById('time').textContent=0;
   deck.forEach(e=>{
@@ -61,7 +69,7 @@ function tap(el){
       open=[];matched++;
       document.getElementById('pairs').textContent=matched;
       ArcadeAudio.sfx('match');
-      if(matched===8)finish();
+      if(matched===pairCount)finish();
     }else{
       lock=true;
       setTimeout(()=>{open.forEach(x=>x.classList.remove('open'));open=[];lock=false;},700);
@@ -69,17 +77,25 @@ function tap(el){
   }
 }
 function finish(){
-  clearInterval(timer);
+  clearInterval(timer);timer=null;
   ArcadeAudio.stopBgm();
   ArcadeAudio.sfx('win');
-  const score=Math.max(100,1000-(moves-8)*20-seconds*2);
+  const score=Math.max(100,1000-(moves-pairCount)*20-seconds*2);
   const grade=seconds<=25?'S':seconds<=40?'A':seconds<=60?'B':'C';
   ArcadeBridge.submitScore(score);
   const b=document.createElement('button');
+  b.className='win';
   b.textContent=`🏆 完成！${moves} 步 / ${seconds}s · 评级 ${grade} · 得分 ${score} · 点击再来`;
   b.onclick=newGame;
   document.body.appendChild(b);
 }
+document.querySelectorAll('.diff').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.diff').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  pairCount=+b.dataset.pairs;
+  ArcadeAudio.sfx('move');
+  newGame();
+}));
 newGame();
 ArcadeAudio.bgm('dream');</script>
 </body>

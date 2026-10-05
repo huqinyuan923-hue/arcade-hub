@@ -106,6 +106,16 @@ addEventListener('keydown',e=>{
   if(map[e.key]){e.preventDefault();setDir(map[e.key]);}
 });
 document.querySelectorAll('.pad button').forEach(b=>b.addEventListener('click',()=>setDir(b.dataset.d)));
+// 触屏滑动控制
+let sw=null;
+addEventListener('touchstart',e=>sw=e.touches[0],{passive:true});
+addEventListener('touchend',e=>{
+  if(!sw)return;
+  const dx=e.changedTouches[0].clientX-sw.clientX,dy=e.changedTouches[0].clientY-sw.clientY;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+  setDir(Math.abs(dx)>Math.abs(dy)?(dx>0?'r':'l'):(dy>0?'d':'u'));
+  sw=null;
+},{passive:true});
 document.querySelectorAll('.modes button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.modes button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');

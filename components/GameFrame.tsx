@@ -21,6 +21,7 @@ export default function GameFrame({
   const wrapRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const playCounted = useRef(false);
+  const lastScoreRef = useRef<{ score: number; at: number }>({ score: -1, at: 0 });
   const [frameKey, setFrameKey] = useState(0);
   const [toast, setToast] = useState<Toast>(null);
   const [best, setBest] = useState<number | null>(null);
@@ -56,6 +57,10 @@ export default function GameFrame({
     async function onMessage(e: MessageEvent) {
       const data = e.data;
       if (!data || data.type !== "arcade:score" || typeof data.score !== "number") return;
+      // 防抖：3 秒内相同成绩视为重复上报（部分游戏会多次触发 submit）
+      const now = Date.now();
+      if (lastScoreRef.current.score === Math.round(data.score) && now - lastScoreRef.current.at < 3000) return;
+      lastScoreRef.current = { score: Math.round(data.score), at: now };
       try {
         const res = await fetch(`/api/games/${slug}/scores`, {
           method: "POST",

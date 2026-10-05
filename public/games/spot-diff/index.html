@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>找不同</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;gap:4px;background:#1a1633;padding:10px;border-radius:12px;border:1px solid rgba(34,211,238,.3);}
+  .c{font-size:26px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#221d44;border-radius:8px;cursor:pointer;transition:transform .06s;}
+  .c:hover{transform:scale(1.06);}
+  .c.found{background:rgba(163,230,53,.25);outline:2px solid #a3e635;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;}
+  button.new{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>🔍 找不同</h1>
+<div class="hud"><span>关卡 <b id="lv">1</b></span><span>时间 <b id="time">0</b>s</span><span>最佳单关 <b id="best">--</b></span></div>
+<div id="grid"></div>
+<p id="msg">其中一格和其他不一样，点它！每关格子更多、差异更小</p>
+<button class="new" id="btnNew">新一局</button>
+<script>
+const gridEl=document.getElementById('grid'),msg=document.getElementById('msg');
+const EMOJIS='🍕🍔🍟🌭🍿🧀🍩🍪🎂🍰🧁🍫🍭🍎🍏🍌🍓🍇🍉🥝🥑🌽🥕🍄🐳🐬🦋🐙🦕🐝🦉🚀🚗🚕🚌🚑⚽🏀🎾🎱'.match(/./gu);
+let N=4,base,diffIdx,level=1,seconds=0,timer,playing=false;
+let best=+(localStorage.getItem('aspotbest')||0);
+if(best)document.getElementById('best').textContent=best+'s';
+
+function newGame(){
+  N=Math.min(8,3+Math.ceil(level/2)); // 每两关扩一圈
+  base=EMOJIS[Math.random()*EMOJIS.length|0];
+  diffIdx=Math.random()*N*N|0;
+  // 挑一个字形相近的干扰项（随机即可）
+  let diff=base;
+  while(diff===base)diff=EMOJIS[Math.random()*EMOJIS.length|0];
+  render(diff);
+  seconds=0;
+  document.getElementById('time').textContent=0;
+  document.getElementById('lv').textContent=level;
+  clearInterval(timer);
+  timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
+  playing=true;
+  msg.textContent=`在 ${N*N} 格中找出那 1 个不同的（第 ${level} 关）`;
+}
+function render(diff){
+  gridEl.innerHTML='';
+  gridEl.style.gridTemplate=`repeat(${N},auto)/repeat(${N},auto)`;
+  for(let i=0;i<N*N;i++){
+    const d=document.createElement('div');
+    d.className='c';
+    d.textContent=i===diffIdx?diff:base;
+    d.addEventListener('click',()=>{
+      if(!playing)return;
+      if(i===diffIdx){
+        playing=false;clearInterval(timer);
+        d.classList.add('found');
+        ArcadeAudio.sfx('levelup');
+        if(!best||seconds<best){best=seconds;localStorage.setItem('aspotbest',best);document.getElementById('best').textContent=best+'s';}
+        const score=Math.max(50,N*N*100-seconds*8);
+        ArcadeBridge.submitScore(score);
+        msg.style.color='#a3e635';
+        msg.textContent=`✅ 找到了！用时 ${seconds}s · +${score}`;
+        level++;
+        setTimeout(newGame,1100);
+      }else{
+        ArcadeAudio.sfx('miss');
+        d.style.opacity=.35;
+        setTimeout(()=>d.style.opacity='',300);
+      }
+    });
+    gridEl.appendChild(d);
+  }
+}
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');level=1;newGame();});
+newGame();
+ArcadeAudio.bgm('chill');
+</script>
+</body>
+</html>

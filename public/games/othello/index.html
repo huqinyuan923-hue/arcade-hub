@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>黑白棋</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#e7e6f5;text-shadow:0 0 10px rgba(231,230,245,.5);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:18px;font-size:14px;color:#94a3b8;align-items:center;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#0f5c3a;border-radius:10px;max-width:92vw;cursor:pointer;}
+  #status{font-size:15px;color:#94a3b8;min-height:22px;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>⚫ 黑白棋</h1>
+<div class="hud"><span>⚪ 你 <b id="pw">2</b></span><span>⚫ AI <b id="pb">2</b></span></div>
+<canvas id="cv" width="480" height="480"></canvas>
+<p id="status">你执白，夹住对方棋子即可翻转</p>
+<button id="btnNew">重新开始</button>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const N=8,S=60;
+let board,playing,me=true,passMsg;
+// 方向
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+
+function newGame(){
+  board=Array.from({length:N},()=>Array(N).fill(0)); // 0空 1黑 2白
+  board[3][3]=2;board[4][4]=2;board[3][4]=1;board[4][3]=1;
+  playing=true;me=true;
+  document.getElementById('status').textContent='你执白，夹住对方棋子即可翻转';
+  draw();counts();
+}
+function at(x,y){return x<0||x>=N||y<0||y>=N?0:board[y][x];}
+// 落在 (x,y) 用 p 翻转哪些子
+function flips(x,y,p){
+  if(at(x,y)!==0)return null;
+  const all=[];
+  for(const [dx,dy] of DIRS){
+    const line=[];
+    let nx=x+dx,ny=y+dy;
+    while(at(nx,ny)===3-p){line.push([nx,ny]);nx+=dx;ny+=dy;}
+    if(line.length&&at(nx,ny)===p)all.push(...line);
+  }
+  return all.length?all:null;
+}
+function place(x,y,p){
+  const fl=flips(x,y,p);
+  if(!fl)return false;
+  board[y][x]=p;
+  fl.forEach(([fx,fy])=>board[fy][fx]=p);
+  ArcadeAudio.sfx('click');
+  draw();counts();
+  return true;
+}
+function anyMove(p){
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(flips(x,y,p))return true;
+  return false;
+}
+function counts(){
+  let w=0,b=0;
+  board.flat().forEach(v=>v===2?w++:v===1&&b++);
+  document.getElementById('pw').textContent=w;
+  document.getElementById('pb').textContent=b;
+  return [w,b];
+}
+function finish(){
+  playing=false;
+  const [w,b]=counts();
+  const win=w>b;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx(win?'win':'over');
+  ArcadeBridge.submitScore(Math.max(10,w*20+(w-b)*30));
+  document.getElementById('status').textContent=win
+    ?`🏆 你赢了！⚪${w} : ⚫${b}`
+    :w===b?'🤝 平局！':'🤖 AI 赢了 ⚪'+w+' : ⚫'+b;
+}
+function passTurn(){
+  if(playing&&me)return; // 玩家回合外才检查
+}
+function afterMove(){
+  const opp=me?1:2;
+  if(anyMove(opp)){
+    me=!me;
+    if(me)document.getElementById('status').textContent='轮到你了';
+    else {document.getElementById('status').textContent='🤖 AI 思考中…';setTimeout(aiMove,450);}
+  }else if(anyMove(me)){
+    // 对方无棋可走，跳过
+    document.getElementById('status').textContent=me?'对方无棋可走，继续你的回合':'你无棋可走，AI 继续';
+    if(!me)setTimeout(aiMove,450);
+  }else{
+    finish();
+  }
+}
+function aiMove(){
+  if(!playing)return;
+  // 贪心：翻最多 + 角优先
+  let best=null,bestV=-1;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const fl=flips(x,y,1);
+    if(!fl)continue;
+    let v=fl.length;
+    if((x===0||x===N-1)&&(y===0||y===N-1))v+=30;
+    if(x===0||x===N-1||y===0||y===N-1)v+=6;
+    if(v>bestV){bestV=v;best=[x,y,fl];}
+  }
+  if(!best)return finish();
+  const [x,y,fl]=best;
+  board[y][x]=1;
+  fl.forEach(([fx,fy])=>board[fy][fx]=1);
+  ArcadeAudio.sfx('flip');
+  draw();counts();
+  me=true;
+  if(anyMove(2)){
+    document.getElementById('status').textContent='轮到你了';
+  }else if(anyMove(1)){
+    document.getElementById('status').textContent='你无棋可走，AI 继续';
+    setTimeout(aiMove,450);
+  }else finish();
+}
+cv.addEventListener('click',e=>{
+  if(!playing||!me)return;
+  const r=cv.getBoundingClientRect();
+  const x=Math.floor((e.clientX-r.left)*(N/r.width));
+  const y=Math.floor((e.clientY-r.top)*(N/r.height));
+  if(place(x,y,2))afterMove();
+});
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');newGame();});
+function draw(){
+  ctx.fillStyle='#0f5c3a';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='rgba(0,0,0,.35)';
+  for(let i=0;i<=N;i++){
+    ctx.beginPath();ctx.moveTo(i*S,0);ctx.lineTo(i*S,cv.height);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i*S);ctx.lineTo(cv.width,i*S);ctx.stroke();
+  }
+  // 合法落点提示
+  if(playing&&me){
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+      if(flips(x,y,2)){
+        ctx.beginPath();ctx.arc(x*S+S/2,y*S+S/2,7,0,7);
+        ctx.fillStyle='rgba(255,255,255,.25)';ctx.fill();
+      }
+    }
+  }
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const v=at(x,y);
+    if(!v)continue;
+    ctx.beginPath();ctx.arc(x*S+S/2,y*S+S/2,S/2-5,0,7);
+    const grad=ctx.createRadialGradient(x*S+S/2-4,y*S+S/2-4,2,x*S+S/2,y*S+S/2,S/2-5);
+    if(v===1){grad.addColorStop(0,'#555');grad.addColorStop(1,'#0a0a0a');}
+    else{grad.addColorStop(0,'#fff');grad.addColorStop(1,'#b8b8b8');}
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.3)';ctx.stroke();
+  }
+}
+newGame();
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>
