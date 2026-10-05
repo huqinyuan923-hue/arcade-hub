@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import GameCard from "@/components/GameCard";
+import GameToolsBar from "@/components/GameToolsBar";
 import { getCategories, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function GamesPage({
           {category && <input type="hidden" name="category" value={category} />}
           <input type="hidden" name="sort" value={sort} />
           <input
+            id="game-search"
             name="q"
             defaultValue={q}
             placeholder="搜索游戏…"
@@ -79,6 +81,7 @@ export default async function GamesPage({
             搜索
           </button>
         </form>
+        <GameToolsBar slugs={games.map((g) => g.slug)} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

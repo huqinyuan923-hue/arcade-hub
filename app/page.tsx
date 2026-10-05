@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { sum } from "drizzle-orm";
+import { desc, eq, sum } from "drizzle-orm";
 import GameCard, { formatPlays } from "@/components/GameCard";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import { getDb } from "@/db";
-import { games } from "@/db/schema";
+import { games, playEvents } from "@/db/schema";
+import { getSessionUser } from "@/lib/auth";
 import { getCategories, getFeaturedGames, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const db = getDb();
-  const [featured, newest, hottest, categories, totals] = await Promise.all([
+  const user = await getSessionUser();
+  const [featured, newest, hottest, categories, totals, recent] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
     listGames({ sort: "hot", limit: 8 }),
@@ -19,8 +21,25 @@ export default async function HomePage() {
     db
       .select({ total: sum(games.plays).mapWith(Number) })
       .from(games),
+    // 登录用户的最近游玩（"继续玩"）
+    user
+      ? db
+          .select({ slug: games.slug, title: games.title })
+          .from(playEvents)
+          .innerJoin(games, eq(games.id, playEvents.gameId))
+          .where(eq(playEvents.userId, user.id))
+          .orderBy(desc(playEvents.createdAt))
+          .limit(6)
+      : Promise.resolve([]),
   ]);
   const totalPlays = totals[0]?.total ?? 0;
+  // 去重（同一游戏只保留最近一条）
+  const seen = new Set<string>();
+  const continueGames = (recent as { slug: string; title: string }[]).filter((g) => {
+    if (seen.has(g.slug)) return false;
+    seen.add(g.slug);
+    return true;
+  });
 
   return (
     <div className="flex flex-col gap-10">
@@ -34,6 +53,20 @@ export default async function HomePage() {
             霓虹街机游戏厅 —— 2048、贪吃蛇、俄罗斯方块、打砖块……
             经典小游戏即点即玩，登录后可收藏、评分、冲击排行榜。
           </p>
+          {continueGames.length > 0 && (
+            <div className="flex flex-wrap justify-center items-center gap-2 mt-1">
+              <span className="text-xs text-slate-500">▶️ 继续玩：</span>
+              {continueGames.map((g) => (
+                <Link
+                  key={g.slug}
+                  href={`/game/${g.slug}`}
+                  className="chip px-3 py-1.5 rounded-lg text-xs hover:border-neon-cyan transition-colors"
+                >
+                  {g.title}
+                </Link>
+              ))}
+            </div>
+          )}
           <div className="flex gap-3 mt-2">
             <Link href="/games" className="btn-neon px-6 py-2.5 rounded-xl font-semibold">
               🕹️ 全部游戏

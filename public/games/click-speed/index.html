@@ -21,7 +21,7 @@
 </head>
 <body>
 <h1>🖱️ 手速测试</h1>
-<div class="hud"><span>点击 <b id="n">0</b></span><span>剩余 <b id="t">10.0</b>s</span><span>最高 CPS <b id="hi">0</b></span></div>
+<div class="hud"><span>点击 <b id="n">0</b></span><span>剩余 <b id="t">10.0</b>s</span><span>实时 CPS <b id="cps">0.0</b></span><span>最高 CPS <b id="hi">0</b></span></div>
 <div id="pad"><span class="n" id="big">0</span><span>10 秒内疯狂点击！</span></div>
 <button class="start" id="btn">开始测试</button>
 <p id="msg">鼠标连点或手指连戳都行 · CPS = 每秒点击数</p>
@@ -41,6 +41,8 @@ function start(){
   timer=setInterval(()=>{
     const el=(Date.now()-t0)/1000;
     document.getElementById('t').textContent=Math.max(0,10-el).toFixed(1);
+    document.getElementById('big').textContent=n;
+    if(el>0)document.getElementById('cps').textContent=(n/el).toFixed(1);
     if(el>=10)finish();
   },50);
 }

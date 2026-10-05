@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>成语填空</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#facc15;text-shadow:0 0 10px rgba(250,204,21,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #card{width:min(92vw,420px);background:#1a1633;border:1px solid rgba(250,204,21,.35);border-radius:16px;padding:22px;text-align:center;}
+  .idiom{font-size:34px;font-weight:800;letter-spacing:8px;margin:10px 0;}
+  .idiom .blank{color:#facc15;text-decoration:underline;text-underline-offset:8px;}
+  .hint{font-size:14px;color:#94a3b8;min-height:40px;}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+  .opts button{padding:12px 0;font-size:19px;font-weight:700;border-radius:12px;cursor:pointer;background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;}
+  #msg{min-height:24px;font-size:15px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<h1>📜 成语填空</h1>
+<div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>题数 <b id="total">0</b></span></div>
+<div id="card">
+  <div class="idiom" id="idiom"></div>
+  <div class="hint" id="hint"></div>
+  <div class="opts" id="opts"></div>
+</div>
+<p id="msg"></p>
+<script>
+const BANK=[
+ {w:'一鸣惊人',b:0,h:'比喻平时没有突出的表现，一下子做出惊人的成绩。',o:['鸣','飞','冲','石']},
+ {w:'画蛇添足',b:3,h:'多此一举，反而坏事。',o:['目','手','笔','足']},
+ {w:'井底之蛙',b:2,h:'比喻见识狭窄的人。',o:'鱼 兔 蛙 龟'.split(' ')},
+ {w:'守株待兔',b:3,h:'比喻死守狭隘经验，不知变通。',o:'猪 兔 马 牛'.split(' ')},
+ {w:'亡羊补牢',b:1,h:'出了问题及时补救，还不算晚。',o:'犬 羊 牛 马'.split(' ')},
+ {w:'掩耳盗铃',b:3,h:'自己欺骗自己。',o:'铃 钟 鼓 铃铛'.split(' ')},
+ {w:'狐假虎威',b:1,h:'借别人的威风吓唬人。',o:'威 力 势 气'.split(' ')},
+ {w:'刻舟求剑',b:3,h:'不懂事物已发展变化而静止地看问题。',o:'刀 盾 剑 斧'.split(' ')},
+ {w:'揠苗助长',b:1,h:'违反事物发展规律，急于求成反而坏事。',o:'花 苗 草 树'.split(' ')},
+ {w:'对牛弹琴',b:2,h:'对不懂道理的人讲道理。',o:'琴 棋 书 画'.split(' ')},
+ {w:'杯弓蛇影',b:2,h:'疑神疑鬼，自相惊扰。',o:'蛇 龙 虫 蟒'.split(' ')},
+ {w:'鹤立鸡群',b:0,h:'才能或仪表在人群中十分突出。',o:'鹤 鹅 鸭 雁'.split(' ')},
+ {w:'如鱼得水',b:1,h:'得到与自己十分投合的人或环境。',o:'水 油 鱼 米'.split(' ')},
+ {w:'望梅止渴',b:1,h:'用空想安慰自己。',o:'梅 李 桃 杏'.split(' ')},
+ {w:'愚公移山',b:2,h:'坚持不懈地改造自然。',o:'山 海 路 石'.split(' ')},
+ {w:'凿壁偷光',b:2,h:'家贫而读书刻苦。',o:'火 光 月 灯'.split(' ')},
+ {w:'四面楚歌',b:2,h:'陷入四面受敌、孤立无援的困境。',o:'楚 汉 秦 唐'.split(' ')},
+ {w:'卧薪尝胆',b:3,h:'刻苦自励，发愤图强。',o:'茶 药 苦 胆'.split(' ')},
+ {w:'破釜沉舟',b:1,h:'下定决心，不留退路。',o:'锅 釜 碗 舟'.split(' ')},
+ {w:'纸上谈兵',b:2,h:'空谈理论，不能解决实际问题。',o:'书 兵 图 纸'.split(' ')},
+];
+const idioms=[...BANK].sort(()=>Math.random()-.5);
+let idx=0,score=0,streak=0,total=0,locked=false;
+const idiomEl=document.getElementById('idiom'),hintEl=document.getElementById('hint'),optsEl=document.getElementById('opts'),msg=document.getElementById('msg');
+
+function show(){
+  if(idx>=idioms.length){idioms.sort(()=>Math.random()-.5);idx=0;}
+  locked=false;
+  const q=idioms[idx];
+  idiomEl.innerHTML=q.w.split('').map((ch,i)=>i===q.b?`<span class="blank">？</span>`:ch).join('');
+  hintEl.textContent='💡 '+q.h;
+  const opts=q.o.map((t,i)=>({t,correct:i===0})).sort(()=>Math.random()-.5);
+  optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const b=document.createElement('button');
+    b.textContent=o.t;
+    b.addEventListener('click',()=>{
+      if(locked)return;locked=true;
+      total++;document.getElementById('total').textContent=total;
+      if(o.correct){
+        streak++;score+=50+streak*10;
+        document.getElementById('streak').textContent=streak;
+        document.getElementById('score').textContent=score;
+        ArcadeAudio.sfx('score');
+        msg.style.color='#a3e635';
+        msg.textContent=`✅ ${q.w} —— 答对了！`;
+      }else{
+        streak=0;document.getElementById('streak').textContent=0;
+        ArcadeAudio.sfx('over');
+        msg.style.color='#f472b6';
+        msg.textContent=`❌ 正确答案是「${q.o[0]}」`;
+      }
+      ArcadeBridge.submitScore(score);
+      idx++;
+      setTimeout(show,900);
+    });
+    optsEl.appendChild(b);
+  });
+}
+show();
+ArcadeAudio.bgm('chill');
+</script>
+</body>
+</html>

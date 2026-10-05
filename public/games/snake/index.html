@@ -35,7 +35,7 @@
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const N=20,S=cv.width/N;
-let snake,dir,food,score,dead,timer,speed,baseSpeed;
+let snake,dir,food,score,dead,timer,speed,baseSpeed,paused=false;
 let hi=+(localStorage.getItem('asnakehi')||0);
 document.getElementById('hi').textContent=hi;
 
@@ -95,6 +95,14 @@ function draw(){
 }
 addEventListener('keydown',e=>{
   const map={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',w:'u',s:'d',a:'l',d:'r'};
+  if(e.key==='p'||e.key==='P'){
+    if(dead)return;
+    paused=!paused;
+    if(paused){clearInterval(timer);ArcadeAudio.stopBgm();}
+    else{timer=setInterval(tick,speed);ArcadeAudio.bgm('pulse');}
+    return;
+  }
+  if(paused)return;
   if(map[e.key]){e.preventDefault();setDir(map[e.key]);}
 });
 document.querySelectorAll('.pad button').forEach(b=>b.addEventListener('click',()=>setDir(b.dataset.d)));

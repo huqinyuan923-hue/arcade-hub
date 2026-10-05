@@ -80,7 +80,7 @@ function finish(){
   ArcadeAudio.sfx(wpm>40?'win':'over');
   ArcadeBridge.submitScore(score);
   msg.style.color=wpm>40?'#a3e635':'#f472b6';
-  msg.textContent=`⏰ 时间到！WPM ${wpm} · 正确率 ${acc}% · 得分 ${score}`;
+  msg.textContent=`⏰ 时间到！WPM ${wpm} · 正确率 ${acc}% · 击键 ${pos+bad} 次 · 得分 ${score}`;
   document.getElementById('btnStart').textContent='再来一轮';
 }
 addEventListener('keydown',e=>{

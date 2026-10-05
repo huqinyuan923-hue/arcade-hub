@@ -145,3 +145,9 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 选中文本霓虹配色 */
+::selection {
+  background: rgba(34, 211, 238, 0.35);
+  color: #f1f5f9;
+}

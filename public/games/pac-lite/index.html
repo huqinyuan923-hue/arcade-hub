@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹豆豆</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#fb923c;text-shadow:0 0 10px rgba(251,146,60,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#060414;border:1px solid rgba(251,146,60,.4);border-radius:10px;max-width:92vw;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>👻 霓虹豆豆</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>剩余 <b id="dots">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="440" height="440"></canvas>
+<p class="tip">方向键 / WASD 移动 · 吃光全部豆豆过关 · 别碰红色幽灵，吃了 ⭐ 可以反杀 5 秒</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const N=17,S=cv.width/N;
+// 迷宫布局（1=墙 0=路）
+const MAP=[
+"11111111111111111",
+"10000000100000001",
+"10111100100111101",
+"10100000000000101",
+"10100111111010101",
+"10000100001000101",
+"11100101111010111",
+"10000000000000101",
+"10111110111110101",
+"10100000000000101",
+"10101111111010101",
+"10000100001000101",
+"11100100111010111",
+"10000000100000001",
+"10111110111110101",
+"10000000000000001",
+"11111111111111111",
+];
+let p,ghosts,dots,power,score,dead,started,frame,timer,playing;
+let hi=+(localStorage.getItem('apachi')||0);
+document.getElementById('hi').textContent=hi;
+
+function findOpen(){for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(MAP[y][x]==='0')return {x,y};return {x:1,y:1};}
+function newGame(){
+  const st=findOpen();
+  p={x:st.x,y:st.y,dir:[0,0],want:[0,0]};
+  ghosts=[
+    {x:15,y:1,dir:[-1,0],c:'#f87171'},
+    {x:1,y:15,dir:[1,0],c:'#f87171'},
+    {x:8,y:7,dir:[0,-1],c:'#fb7185'},
+  ];
+  dots=[];frame=0;power=0;score=0;dead=false;started=false;playing=true;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(MAP[y][x]==='0')dots.push({x,y});
+  document.getElementById('dots').textContent=dots.length;
+  hud();
+  clearInterval(timer);timer=setInterval(tick,150);
+  draw();
+}
+function hud(){document.getElementById('score').textContent=score;}
+function tick(){
+  if(dead||!playing)return;
+  frame++;
+  // 玩家转向（管道缓冲）
+  const [wx,wy]=p.want;
+  const nx=p.x+wx,ny=p.y+wy;
+  if((wx||wy)&&MAP[ny]&&MAP[ny][nx]==='0'){p.dir=[wx,wy];p.x=nx;p.y=ny;}
+  else{
+    const [dx,dy]=p.dir;
+    if(MAP[p.y+dy]&&MAP[p.y+dy][p.x+dx]==='0'){p.x+=dx;p.y+=dy;}
+  }
+  if(started)start();
+  // 吃豆
+  const di=dots.findIndex(d=>d.x===p.x&&d.y===p.y);
+  if(di>=0){
+    const isStar=dots[di].star;
+    dots.splice(di,1);
+    document.getElementById('dots').textContent=dots.length;
+    score+=isStar?50:10;hud();
+    if(isStar){power=300;ArcadeAudio.sfx('levelup');}else ArcadeAudio.sfx('click');
+    if(dots.length===0)return win();
+  }
+  if(power>0)power--;
+  // 幽灵移动（简单随机+偏向）
+  ghosts.forEach(g=>{
+    const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>MAP[g.y+dy]&&MAP[g.y+dy][g.x+dx]==='0'&&(dx!==-g.dir[0]||dy!==-g.dir[1]));
+    if(opts.length){
+      // 追踪玩家
+      opts.sort((a,b)=>{
+        const da=Math.hypot(p.x-(g.x+a[0]),p.y-(g.y+a[1]));
+        const db=Math.hypot(p.x-(g.x+b[0]),p.y-(g.y+b[1]));
+        return (power>0?-1:1)*(da-db);
+      });
+      if(Math.random()<0.85){g.dir=opts[0];}
+      else g.dir=opts[Math.random()*opts.length|0];
+      g.x+=g.dir[0];g.y+=g.dir[1];
+    }
+    if(g.x===p.x&&g.y===p.y){
+      if(power>0){
+        score+=200;hud();
+        g.x=15;g.y=1;
+        ArcadeAudio.sfx('score');
+      }else return die();
+    }
+  });
+  draw();
+}
+function win(){
+  playing=false;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('win');
+  score+=500;
+  if(score>hi){hi=score;localStorage.setItem('apachi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  draw();
+  ctx.fillStyle='rgba(6,4,20,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#a3e635';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`🏁 通关！+500 · 总分 ${score}`,cv.width/2,cv.height/2-10);
+}
+function die(){
+  dead=true;playing=false;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('over');
+  if(score>hi){hi=score;localStorage.setItem('apachi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  draw();
+  ctx.fillStyle='rgba(6,4,20,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#f472b6';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`被抓住了：${score} 分`,cv.width/2,cv.height/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('按方向键再来一局',cv.width/2,cv.height/2+20);
+  const re=e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(m){removeEventListener('keydown',re);newGame();}};
+  addEventListener('keydown',re);
+}
+function start(){
+  if(started)return;
+  started=true;
+  ArcadeAudio.bgm('march');
+}
+function draw(){
+  ctx.fillStyle='#060414';ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(MAP[y][x]==='1'){ctx.fillStyle='#1e1a3f';ctx.fillRect(x*S+1,y*S+1,S-2,S-2);
+      ctx.strokeStyle='rgba(251,146,60,.15)';ctx.strokeRect(x*S+1,y*S+1,S-2,S-2);}
+  }
+  dots.forEach(d=>{
+    ctx.beginPath();ctx.arc(d.x*S+S/2,d.y*S+S/2,d.star?6:2.5,0,7);
+    ctx.fillStyle=d.star?'#facc15':'#fbd38d';ctx.fill();
+  });
+  if(!dead||true){
+    // 玩家
+    ctx.beginPath();ctx.arc(p.x*S+S/2,p.y*S+S/2,S/2-3,0,7);
+    ctx.fillStyle=power>0?'#a3e635':'#facc15';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=12;ctx.fill();
+    ctx.shadowBlur=0;
+    // 幽灵
+    ghosts.forEach(g=>{
+      ctx.font=`${S-6}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('👻',g.x*S+S/2,g.y*S+S/2);
+    });
+  }
+}
+addEventListener('keydown',e=>{
+  const map={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]};
+  const m=map[e.key];
+  if(m){e.preventDefault();p.want=m;start();
+    if(dead)newGame();}
+});
+// 随机放 3 颗星星
+setInterval(()=>{if(!playing)return;const open=dots.filter(d=>!d.star);if(open.length>10)open[Math.random()*open.length|0].star=true;},8000);
+newGame();
+ArcadeAudio.bgm('march');
+</script>
+</body>
+</html>

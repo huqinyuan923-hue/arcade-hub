@@ -22,7 +22,7 @@
 </head>
 <body>
 <h1>⚫ 五子棋 · 人机对战</h1>
-<div class="hud"><span>你 ⚪ / AI ⚫</span><span>连胜 <b id="streak">0</b></span></div>
+<div class="hud"><span>你 ⚪ / AI ⚫</span><span>手数 <b id="mv">0</b></span><span>连胜 <b id="streak">0</b></span></div>
 <canvas id="cv" width="465" height="465"></canvas>
 <p id="status">你执白先行，五子连线即胜</p>
 <div class="diff">
@@ -41,6 +41,7 @@ const DIRS=[[1,0],[0,1],[1,1],[1,-1]];
 function newGame(){
   board=Array.from({length:N},()=>Array(N).fill(0)); // 0空 1黑(AI) 2白(玩家)
   playing=true;me=true;winLine=null;history=[];
+  document.getElementById('mv').textContent=0;
   document.getElementById('status').textContent='你执白先行，五子连线即胜';
   draw();
 }
@@ -48,6 +49,7 @@ function at(x,y){return x<0||x>=N||y<0||y>=N?0:board[y][x];}
 function place(x,y,p){
   board[y][x]=p;
   history.push({x,y,p});
+  document.getElementById('mv').textContent=history.length;
   ArcadeAudio.sfx('click');
   draw();
   const w=checkWin(x,y,p);
@@ -66,6 +68,7 @@ function undo(){
   }
   ArcadeAudio.sfx('flip');
   playing=true;me=true;winLine=null;
+  document.getElementById('mv').textContent=history.length;
   document.getElementById('status').textContent='已悔棋，轮到你（⚪）';
   draw();
 }

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>弹幕求生</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#060414;border:1px solid rgba(244,114,182,.4);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>💥 弹幕求生</h1>
+<div class="hud"><span>存活 <b id="time">0.0</b>s</span><span>波次 <b id="wave">1</b></span><span>最高 <b id="hi">0</b>s</span></div>
+<canvas id="cv" width="440" height="440"></canvas>
+<p class="tip">移动鼠标 / 手指拖动 控制光点 · 躲避弹幕 · 每 15 秒弹幕更密一档</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let me,bullets,stars,alive,started,frame,wave,t0,timer,raf;
+let hi=+(localStorage.getItem('adodgehi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  me={x:cv.width/2,y:cv.height/2};
+  bullets=[];stars=Array.from({length:50},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,s:.3+Math.random()}));
+  alive=false;started=false;frame=0;wave=1;
+  document.getElementById('time').textContent='0.0';
+  cancelAnimationFrame(raf);loop();
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('移动鼠标进入场地开始',cv.width/2,cv.height/2+30);
+}
+function start(){
+  if(started)return;
+  started=true;alive=true;t0=Date.now();
+  ArcadeAudio.bgm('tense');
+  timer=setInterval(()=>{
+    if(!alive)return;
+    const el=(Date.now()-t0)/1000;
+    document.getElementById('time').textContent=el.toFixed(1);
+    const w=1+Math.floor(el/15);
+    if(w>wave){
+      wave=w;document.getElementById('wave').textContent=wave;
+      ArcadeAudio.sfx('levelup');
+    }
+  },100);
+}
+function spawnPattern(){
+  // 随机弹幕模式：环形爆开 / 边缘散射 / 追踪弹
+  const kind=Math.random();
+  if(kind<0.4){
+    const cx=60+Math.random()*(cv.width-120),cy=60+Math.random()*(cv.height-120);
+    const n=10+wave*2;
+    for(let i=0;i<n;i++){
+      const a=i/n*Math.PI*2;
+      bullets.push({x:cx,y:cy,vx:Math.cos(a)*1.6,vy:Math.sin(a)*1.6,r:4,c:'#f472b6'});
+    }
+  }else if(kind<0.75){
+    const side=Math.random()*4|0;
+    for(let i=0;i<6+wave;i++){
+      const along=Math.random()*(side<2?cv.width:cv.height);
+      const fromTopBottom=side<2;
+      const sp=1.2+Math.random()*1.4+wave*.1;
+      bullets.push(fromTopBottom
+        ?{x:along,y:side===0?-8:cv.height+8,vx:0,vy:side===0?sp:-sp,r:5,c:'#fb923c'}
+        :{x:side===2?-8:cv.width+8,y:along,vx:side===2?sp:-sp,vy:0,r:5,c:'#fb923c'});
+    }
+  }else{
+    const a=Math.random()*Math.PI*2;
+    bullets.push({x:-10,y:Math.random()*cv.height,vx:Math.cos(a)*2.2,vy:Math.sin(a)*1.2,homing:1,r:6,c:'#facc15'});
+  }
+}
+function update(){
+  frame++;
+  stars.forEach(s=>{s.y+=s.s;if(s.y>cv.height){s.y=0;s.x=Math.random()*cv.width;}});
+  if(!alive)return;
+  if(frame%Math.max(20,70-wave*8)===0)spawnPattern();
+  bullets.forEach(b=>{
+    b.x+=b.vx;b.y+=b.vy;
+    if(b.homing){
+      const dx=me.x-b.x,dy=me.y-b.y,d=Math.hypot(dx,dy)||1;
+      b.vx+=dx/d*.02;b.vy+=dy/d*.02;
+    }
+  });
+  bullets=bullets.filter(b=>b.x>-20&&b.x<cv.width+20&&b.y>-20&&b.y<cv.height+20);
+  for(const b of bullets){
+    if(Math.hypot(b.x-me.x,b.y-me.y)<b.r+6){
+      alive=false;
+      ArcadeAudio.stopBgm();
+      ArcadeAudio.sfx('explode');
+      const el=(Date.now()-t0)/1000;
+      if(el>hi){hi=el;localStorage.setItem('adodgehi',hi);document.getElementById('hi').textContent=hi;}
+      ArcadeBridge.submitScore(Math.round(el*100));
+      ctx.fillStyle='rgba(6,4,20,.85)';ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.fillStyle='#f472b6';ctx.font='bold 24px system-ui';ctx.textAlign='center';
+      ctx.fillText(`存活 ${el.toFixed(1)} 秒`,cv.width/2,cv.height/2-10);
+      ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+      ctx.fillText('移动鼠标再来一局',cv.width/2,cv.height/2+22);
+      const re=()=>{cv.removeEventListener('mousemove',re);newGame();start();};
+      cv.addEventListener('mousemove',re,{once:true});
+      break;
+    }
+  }
+}
+function draw(){
+  ctx.fillStyle='#060414';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(148,163,255,.35)';
+  stars.forEach(s=>ctx.fillRect(s.x,s.y,1.5,1.5));
+  bullets.forEach(b=>{
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);
+    ctx.fillStyle=b.c;ctx.shadowColor=b.c;ctx.shadowBlur=8;ctx.fill();
+  });
+  ctx.shadowBlur=0;
+  if(alive){
+    ctx.beginPath();ctx.arc(me.x,me.y,6,0,7);
+    ctx.fillStyle='#22d3ee';ctx.shadowColor='#22d3ee';ctx.shadowBlur=14;ctx.fill();
+    ctx.beginPath();ctx.arc(me.x,me.y,14,0,7);
+    ctx.strokeStyle='rgba(34,211,238,.4)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+}
+function loop(){
+  update();draw();
+  raf=requestAnimationFrame(loop);
+}
+function moveTo(e){
+  const r=cv.getBoundingClientRect();
+  const nx=(e.clientX-r.left)*(cv.width/r.width),ny=(e.clientY-r.top)*(cv.height/r.height);
+  const wasOutside=!started;
+  me.x=Math.max(8,Math.min(cv.width-8,nx));
+  me.y=Math.max(8,Math.min(cv.height-8,ny));
+  if(wasOutside&&!bulletsDead())start();
+}
+function bulletsDead(){return false;}
+cv.addEventListener('mousemove',moveTo);
+cv.addEventListener('touchmove',e=>{e.preventDefault();moveTo(e.touches[0]);},{passive:false});
+cv.addEventListener('touchstart',e=>{e.preventDefault();moveTo(e.touches[0]);},{passive:false});
+newGame();
+</script>
+</body>
+</html>

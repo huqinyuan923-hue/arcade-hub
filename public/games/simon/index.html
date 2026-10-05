@@ -54,8 +54,9 @@ function nextLevel(){
   seq.push(Math.random()*4|0);
   pos=0;
   statusEl.textContent='👀 仔细看…';
-  seq.forEach((s,idx)=>setTimeout(()=>light(s),600+idx*560));
-  setTimeout(()=>{statusEl.textContent='🖐️ 轮到你了！';},600+seq.length*560);
+  const gap=Math.max(260,560-level*16); // 关卡越高闪现越快
+  seq.forEach((s,idx)=>setTimeout(()=>light(s),600+idx*gap));
+  setTimeout(()=>{statusEl.textContent='🖐️ 轮到你了！';},600+seq.length*gap);
 }
 pads.forEach(p=>p.addEventListener('pointerdown',()=>{
   if(!playing)return;

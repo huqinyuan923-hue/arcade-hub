@@ -18,7 +18,7 @@
 </head>
 <body>
 <h1>🏃 像素跑酷</h1>
-<div class="hud"><span>距离 <b id="score">0</b>m</span><span>最高 <b id="hi">0</b>m</span></div>
+<div class="hud"><span>距离 <b id="score">0</b>m</span><span>速度 <b id="spd">1.0</b>x</span><span>最高 <b id="hi">0</b>m</span></div>
 <canvas id="cv" width="560" height="300"></canvas>
 <p class="tip">空格 / ↑ / 点击 跳跃（支持二段跳）· P 键暂停 · 跳过尖刺和石块 · 速度会越来越快</p>
 <script>
@@ -51,6 +51,7 @@ function update(){
   if(!started)return;
   score=Math.floor(frame/6);document.getElementById('score').textContent=score;
   speed=4.5+frame/900;
+  document.getElementById('spd').textContent=(speed/4.5).toFixed(1);
   // 物理
   hero.vy+=0.62;hero.y+=hero.vy;
   if(hero.y>=GROUND){hero.y=GROUND;hero.vy=0;hero.jumps=0;}

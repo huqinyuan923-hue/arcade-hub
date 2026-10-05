@@ -23,7 +23,7 @@
 <body>
 <div class="left">
   <h1>🧱 霓虹俄罗斯方块</h1>
-  <div class="hud"><span>分数 <b id="score">0</b></span><span>行数 <b id="lines">0</b></span><span>等级 <b id="level">1</b></span><span style="color:#64748b;">P=暂停</span></div>
+  <div class="hud"><span>分数 <b id="score">0</b></span><span>行数 <b id="lines">0</b></span><span>等级 <b id="level">1</b></span><span>最高 <b id="hi">0</b></span><span style="color:#64748b;">P=暂停</span></div>
   <canvas id="cv" width="240" height="480"></canvas>
   <button class="restart" id="btnRestart">重新开始</button>
 </div>
@@ -140,6 +140,9 @@ function updateHud(){
   document.getElementById('score').textContent=score;
   document.getElementById('lines').textContent=lines;
   document.getElementById('level').textContent=level;
+  const hi=+(localStorage.getItem('atetrishi')||0);
+  document.getElementById('hi').textContent=hi;
+  if(score>hi)localStorage.setItem('atetrishi',score);
 }
 function draw(){
   ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);

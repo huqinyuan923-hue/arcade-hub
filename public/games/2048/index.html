@@ -105,6 +105,7 @@ function gameOver(){
 }
 addEventListener('keydown',e=>{
   const map={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'u',ArrowDown:'d',a:'l',d:'r',w:'u',s:'d'};
+  if(e.key==='r'||e.key==='R'){newGame();return;}
   const dir=map[e.key];if(dir){e.preventDefault();move(dir);}
 });
 let ts=null;

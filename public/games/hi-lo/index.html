@@ -27,7 +27,7 @@
 </head>
 <body>
 <h1>🃏 高低猜牌</h1>
-<div class="hud"><span>最高连胜 <b id="hi">0</b></span><span>筹码 <b id="chips">100</b></span></div>
+<div class="hud"><span>连胜 <b id="streak">0</b></span><span>最高连胜 <b id="hi">0</b></span><span>胜率 <b id="wr">--</b></span><span>筹码 <b id="chips">100</b></span></div>
 <div id="table">
   <div class="card" id="cur">?</div>
   <div id="streakN">0</div>
@@ -42,7 +42,7 @@
 <script>
 const SUITS=[{s:'♠',red:false},{s:'♥',red:true},{s:'♦',red:true},{s:'♣',red:false}];
 const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-let cur,next,streak=0,locked=false;
+let cur,next,streak=0,locked=false,rounds=0,wins=0;
 let hi=+(localStorage.getItem('ahilohi')||0);
 let chips=100;
 document.getElementById('hi').textContent=hi;
@@ -67,11 +67,14 @@ function judge(){
   else if(b===a&&pressed==='eq')ok=true;
   else if(b!==a&&pressed!=='eq')ok=false;
   else ok=false;
+  rounds++;
   if(ok){
-    streak++;
+    wins++;streak++;
     chips+=streak*5;
     ArcadeAudio.sfx(streak>=3?'levelup':'score');
     document.getElementById('streakN').textContent=streak;
+    document.getElementById('streak').textContent=streak;
+    document.getElementById('wr').textContent=Math.round(wins/rounds*100)+'%';
     document.getElementById('msg').style.color='#a3e635';
     document.getElementById('msg').textContent=`✅ ${cur.r} → ${next.r} 对了！连胜 ${streak}`;
     if(streak>hi){hi=streak;localStorage.setItem('ahilohi',hi);document.getElementById('hi').textContent=hi;}
@@ -79,6 +82,8 @@ function judge(){
     ArcadeAudio.stopBgm();
     ArcadeAudio.sfx('over');
     document.getElementById('streakN').textContent='0';
+    document.getElementById('streak').textContent='0';
+    document.getElementById('wr').textContent=Math.round(wins/rounds*100)+'%';
     document.getElementById('msg').style.color='#f472b6';
     document.getElementById('msg').textContent=`❌ ${cur.r} → ${next.r}，连胜终结于 ${streak}`;
     ArcadeBridge.submitScore(streak*50);

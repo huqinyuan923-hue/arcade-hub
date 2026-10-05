@@ -19,13 +19,13 @@
 </head>
 <body>
 <h1>🎯 瞄准训练</h1>
-<div class="hud"><span>命中 <b id="hits">0</b></span><span>剩余 <b id="t">20.0</b>s</span><span>最高 <b id="hi">0</b></span></div>
+  <div class="hud"><span>命中 <b id="hits">0</b></span><span>连击 <b id="combo">0</b></span><span>剩余 <b id="t">20.0</b>s</span><span>最高 <b id="hi">0</b></span></div>
 <canvas id="cv" width="480" height="360"></canvas>
 <button id="btnStart">开始（20 秒）</button>
 <p id="msg">点中靶心 +10 · 越小越快的目标分越高 · 空点 -2</p>
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),msg=document.getElementById('msg');
-let targets,raf,hits,miss,t0,timer,running=false,frame=0;
+let targets,raf,hits,miss,combo=0,t0,timer,running=false,frame=0;
 let hi=+(localStorage.getItem('aaimhi')||0);
 document.getElementById('hi').textContent=hi;
 
@@ -43,7 +43,8 @@ function newGame(){
 function start(){
   if(running)return;
   running=true;t0=Date.now();
-  hits=0;miss=0;targets=[];
+  hits=0;miss=0;combo=0;targets=[];
+  document.getElementById('combo').textContent=0;
   ArcadeAudio.bgm('bright');
   msg.textContent='';
   timer=setInterval(()=>{
@@ -107,13 +108,15 @@ cv.addEventListener('pointerdown',e=>{
     const t=targets[i];
     if(Math.hypot(x-t.x,y-t.y)<=t.r){
       targets.splice(i,1);
-      hits++;
+      hits++;combo++;
       document.getElementById('hits').textContent=hits;
+      document.getElementById('combo').textContent=combo;
       ArcadeAudio.sfx(t.r<20?'score':'brick');
       return;
     }
   }
-  miss++;
+  miss++;combo=0;
+  document.getElementById('combo').textContent=0;
   ArcadeAudio.sfx('miss');
 });
 document.getElementById('btnStart').addEventListener('click',()=>{newGame();start();});

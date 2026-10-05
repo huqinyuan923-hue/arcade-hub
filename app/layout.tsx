@@ -29,11 +29,12 @@ export const metadata: Metadata = {
   description:
     "Arcade Hub 是一个在线街机游戏门户：2048、贪吃蛇、俄罗斯方块等经典小游戏即点即玩，支持用户收藏、评分与全站排行榜。",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  themeColor: "#0d0b1e",
   openGraph: {
     type: "website",
     siteName: "Arcade Hub",
     title: "Arcade Hub · 霓虹街机游戏厅",
-    description: "2048、贪吃蛇、俄罗斯方块等 22 款经典小游戏即点即玩，冲击排行榜。",
+    description: "2048、贪吃蛇、俄罗斯方块等 28 款经典小游戏即点即玩，冲击排行榜。",
     images: [{ url: "/icon.svg", width: 64, height: 64, alt: "Arcade Hub" }],
   },
 };

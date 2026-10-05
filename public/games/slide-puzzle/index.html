@@ -24,7 +24,7 @@
 </head>
 <body>
 <h1>🧩 数字华容道</h1>
-<div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span></div>
+  <div class="hud"><span>步数 <b id="moves">0</b></span><span>时间 <b id="time">0</b>s</span><span>最佳步数 <b id="bestM">--</b></span></div>
 <div id="board"></div>
 <div class="modes">
   <button data-n="3" class="on">3×3 简单</button>
@@ -78,6 +78,9 @@ function win(){
   playing=false;clearInterval(timer);
   ArcadeAudio.stopBgm();
   ArcadeAudio.sfx('win');
+  const key='aslidebest'+N;
+  const prevBest=+(localStorage.getItem(key)||0);
+  if(!prevBest||moves<prevBest){localStorage.setItem(key,moves);document.getElementById('bestM').textContent=moves;}
   const score=Math.max(50,1000-moves*5-seconds*2-N*N*20);
   ArcadeBridge.submitScore(score);
   const b=document.createElement('button');
@@ -119,6 +122,7 @@ document.querySelectorAll('.modes button').forEach(b=>b.addEventListener('click'
   newGame(+b.dataset.n);
 }));
 addEventListener('resize',()=>draw());
+(()=>{const b=localStorage.getItem('aslidebest'+N);if(b)document.getElementById('bestM').textContent=b;})();
 newGame(3);
 ArcadeAudio.bgm('chill');
 </script>

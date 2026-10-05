@@ -138,7 +138,7 @@ export default async function GameDetailPage({
                               : "text-slate-500"
                       }`}
                     >
-                      {i + 1}
+                      {["🥇", "🥈", "🥉"][i] ?? i + 1}
                     </span>
                     <span className="flex-1 truncate text-slate-200">{s.username}</span>
                     <span className="font-mono font-semibold text-neon-cyan">{s.best}</span>

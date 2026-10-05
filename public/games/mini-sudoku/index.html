@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>迷你数独</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.7);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(4,64px)/repeat(4,64px);gap:3px;background:#0a0819;padding:6px;border-radius:12px;border:2px solid rgba(34,211,238,.4);}
+  .cell{background:#221d44;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;cursor:pointer;}
+  .cell.fixed{background:#3a3178;cursor:default;color:#e7e6f5;}
+  .cell.sel{outline:2px solid #facc15;}
+  .cell.err{color:#f87171;}
+  .cell:hover{background:#2b2560;}
+  .nums{display:flex;gap:10px;}
+  .nums button{width:52px;height:52px;font-size:24px;font-weight:800;border-radius:10px;cursor:pointer;background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;}
+  .nums button.clear{font-size:15px;width:auto;padding:0 16px;}
+  button.new{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #22d3ee;color:#d9fbff;padding:8px 22px;border-radius:10px;cursor:pointer;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<h1>🔢 迷你数独</h1>
+<div class="hud"><span>用时 <b id="time">0</b>s</span><span>完成 <b id="done">0</b> 盘</span><span>最快 <b id="best">--</b></span></div>
+<div id="grid"></div>
+<div class="nums">
+  <button data-n="1">1</button>
+  <button data-n="2">2</button>
+  <button data-n="3">3</button>
+  <button data-n="4">4</button>
+  <button class="clear">✕ 擦除</button>
+</div>
+<p id="msg"></p>
+<button class="new" id="btnNew">换一局</button>
+<script>
+const gridEl=document.getElementById('grid'),msg=document.getElementById('msg');
+let sol,puzzle,sel=-1,seconds=0,timer,playing=false,doneN=0;
+let best=+(localStorage.getItem('asudokubest')||0);
+if(best)document.getElementById('best').textContent=best+'s';
+
+// 生成 4x4 数独解（2x2 宫）：回溯
+function genSolution(){
+  const g=Array(16).fill(0);
+  function ok(i,v){
+    const r=i/4|0,c=i%4;
+    for(let k=0;k<4;k++){if(g[r*4+k]===v||g[k*4+c]===v)return false;}
+    const br=(r/2|0)*2,bc=(c/2|0)*2;
+    for(let y=br;y<br+2;y++)for(let x=bc;x<bc+2;x++)if(g[y*4+x]===v)return false;
+    return true;
+  }
+  function fill(i){
+    if(i===16)return true;
+    const vals=[1,2,3,4].sort(()=>Math.random()-.5);
+    for(const v of vals){if(ok(i,v)){g[i]=v;if(fill(i+1))return true;g[i]=0;}}
+    return false;
+  }
+  fill(0);
+  return g;
+}
+function newGame(){
+  sol=genSolution();
+  // 挖空 8 格（保留 8 格提示），给定格子不可编辑
+  const holes=[...Array(16).keys()].sort(()=>Math.random()-.5).slice(0,8);
+  puzzle=[...sol];
+  holes.forEach(i=>puzzle[i]=0);
+  givens=[...Array(16).keys()].filter(i=>puzzle[i]!==0);
+  sel=-1;seconds=0;playing=true;
+  document.getElementById('time').textContent=0;
+  clearInterval(timer);
+  timer=setInterval(()=>{seconds++;document.getElementById('time').textContent=seconds;},1000);
+  msg.textContent='';
+  build();
+}
+function build(){
+  gridEl.innerHTML='';
+  puzzle.forEach((v,i)=>{
+    const c=document.createElement('div');
+    c.className='cell'+(sol[i]&&puzzle[i]===sol[i]&&v===0?'':'')+(v!==0&&i!==sel?'':'');
+    c.textContent=v||'';
+    if(sol[i]!==0&&puzzle[i]!==0){/* fixed判断改为初始给定集合 */}
+    c.dataset.i=i;
+    c.addEventListener('click',()=>{sel=i;mark();});
+    gridEl.appendChild(c);
+  });
+  mark();
+}
+let givens=[];
+function mark(){
+  [...gridEl.children].forEach((c,i)=>{
+    c.classList.toggle('sel',i===sel);
+    c.classList.toggle('fixed',givens.includes(i));
+    const v=puzzle[i];
+    // 实时冲突检测
+    let err=false;
+    if(v){
+      const r=i/4|0,cc=i%4;
+      for(let k=0;k<4;k++){
+        if(k!==cc&&puzzle[r*4+k]===v)err=true;
+        if(k!==r&&puzzle[k*4+cc]===v)err=true;
+      }
+      const br=(r/2|0)*2,bc=(cc/2|0)*2;
+      for(let y=br;y<br+2;y++)for(let x=bc;x<bc+2;x++){
+        const j=y*4+x;
+        if(j!==i&&puzzle[j]===v)err=true;
+      }
+    }
+    c.classList.toggle('err',err);
+    c.textContent=v||'';
+  });
+}
+function setCell(v){
+  if(sel<0||!playing||givens.includes(sel))return;
+  puzzle[sel]=v;
+  ArcadeAudio.sfx('click');
+  mark();
+  if(puzzle.every((x,i)=>x===sol[i]))win();
+}
+function win(){
+  playing=false;clearInterval(timer);
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('win');
+  doneN++;document.getElementById('done').textContent=doneN;
+  if(!best||seconds<best){best=seconds;localStorage.setItem('asudokubest',best);document.getElementById('best').textContent=best+'s';}
+  const score=Math.max(50,800-seconds*4);
+  ArcadeBridge.submitScore(score);
+  msg.style.color='#a3e635';
+  msg.textContent=`🏁 完成！用时 ${seconds}s · 得分 ${score}`;
+}
+document.querySelectorAll('.nums button').forEach(b=>b.addEventListener('click',()=>{
+  b.dataset.n?setCell(+b.dataset.n):setCell(0);
+}));
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');newGame();});
+newGame();
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>

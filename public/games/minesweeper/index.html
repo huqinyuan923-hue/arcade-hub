@@ -34,13 +34,11 @@ const gridEl=document.getElementById('grid');
 let cells,mine,rev,flag,started,dead,over,timer,seconds;
 
 function newGame(){
-  gridEl.innerHTML='';cells=[];rev=0;flag=0;started=false;dead=false;over=false;seconds=0;
+  gridEl.innerHTML='';cells=[];rev=0;flag=0;started=false;dead=false;over=false;seconds=0;minesPlaced=false;
   clearInterval(timer);document.getElementById('time').textContent=0;
   document.getElementById('mines').textContent=MINES;
   document.getElementById('btnRestart').textContent='重新开始';
   mine=Array(W*H).fill(false);
-  let placed=0;
-  while(placed<MINES){const i=Math.random()*W*H|0;if(!mine[i]){mine[i]=true;placed++;}}
   for(let i=0;i<W*H;i++){
     const c=document.createElement('div');c.className='cell';c.dataset.i=i;
     c.addEventListener('click',()=>reveal(i));
@@ -50,6 +48,14 @@ function newGame(){
     c.addEventListener('touchend',()=>clearTimeout(lp),{passive:true});
     gridEl.appendChild(c);cells.push(c);
   }
+}
+// 首点保护：第一次翻开时才布雷，且避开第一格及其邻居
+let minesPlaced=false;
+function placeMines(safe){
+  const forbidden=new Set([safe,...neighbors(safe)]);
+  const pool=[...Array(W*H).keys()].filter(i=>!forbidden.has(i)).sort(()=>Math.random()-.5);
+  for(let k=0;k<MINES;k++)mine[pool[k]]=true;
+  minesPlaced=true;
 }
 function neighbors(i){
   const x=i%W,y=i/W|0,out=[];
@@ -75,7 +81,8 @@ function toggleFlag(i){
 function revFlagCheck(){return dead;}
 function reveal(i){
   if(dead||cells[i].classList.contains('rev'))return;
-  if(!started)startTimer();
+  if(!started){started=true;startTimer();}
+  if(!minesPlaced)placeMines(i);
   if(cells[i].classList.contains('flag'))return;
   if(mine[i])return boom(i);
   flood(i);

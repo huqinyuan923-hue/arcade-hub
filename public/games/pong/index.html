@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹弹球</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#a3e635;text-shadow:0 0 10px rgba(163,230,53,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(163,230,53,.4);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>🏓 霓虹弹球</h1>
+<div class="hud"><span>你 <b id="ps">0</b></span><span>AI <b id="as">0</b></span><span>最高胜差 <b id="hi">0</b></span></div>
+<canvas id="cv" width="520" height="340"></canvas>
+<p class="tip">↑↓ / W S / 鼠标移动 控制球拍 · 先得 7 分者胜 · 越到后面球越快</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=520,H=340,PH=64,PW=10;
+let player,ai,ball,ps,as,playing,ended,speed,raf,keys={};
+let hi=+(localStorage.getItem('aponghi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  player={y:H/2-PH/2};ai={y:H/2-PH/2};
+  ps=0;as=0;ended=false;playing=false;speed=4.2;
+  hud();serve(1);
+  cancelAnimationFrame(raf);loop();
+}
+function hud(){document.getElementById('ps').textContent=ps;document.getElementById('as').textContent=as;}
+function serve(dir){
+  ball={x:W/2,y:H/2,vx:0,vy:0};
+  playing=false;
+  setTimeout(()=>{if(!ended){ball.vx=dir*speed;ball.vy=(Math.random()-.5)*4;playing=true;}},800);
+}
+function finish(win){
+  ended=true;playing=false;
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx(win?'win':'over');
+  const diff=ps-as;
+  if(diff>hi){hi=diff;localStorage.setItem('aponghi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(Math.max(10,ps*100+Math.max(0,diff)*50));
+  ctx.fillStyle='rgba(7,5,16,.85)';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=win?'#a3e635':'#f472b6';ctx.font='bold 26px system-ui';ctx.textAlign='center';
+  ctx.fillText(win?'🏆 你赢了！':'💥 AI 获胜',W/2,H/2-10);
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';
+  ctx.fillText('点击画面再来一局',W/2,H/2+20);
+  cv.addEventListener('mousedown',()=>{if(ended)newGame();},{once:true});
+}
+function update(){
+  // 玩家
+  if(keys.up)player.y-=6.5;
+  if(keys.down)player.y+=6.5;
+  player.y=Math.max(0,Math.min(H-PH,player.y));
+  if(!playing){ai.y+= (H/2-PH/2-ai.y)*.05;return;}
+  // AI 跟球（带反应延迟和误差）
+  const target=ball.vx>0?ball.y-PH/2+(Math.sin(ball.x/30)*12):H/2-PH/2;
+  ai.y+=(target-ai.y)*Math.min(1,0.07+speed*.008);
+  ai.y=Math.max(0,Math.min(H-PH,ai.y));
+  // 球
+  ball.x+=ball.vx;ball.y+=ball.vy;
+  if(ball.y<6||ball.y>H-6){ball.vy*=-1;ArcadeAudio.sfx('click');}
+  // 玩家球拍碰撞
+  if(ball.vx<0&&ball.x<24+PW&&ball.x>20&&ball.y>player.y&&ball.y<player.y+PH){
+    ball.vx=Math.abs(ball.vx)*1.05;
+    ball.vy+=((ball.y-(player.y+PH/2))/PH*2)*4;
+    ArcadeAudio.sfx('hit');
+  }
+  // AI 球拍
+  if(ball.vx>0&&ball.x>W-24-PW&&ball.x<W-20&&ball.y>ai.y&&ball.y<ai.y+PH){
+    ball.vx=-Math.abs(ball.vx)*1.05;
+    ball.vy+=((ball.y-(ai.y+PH/2))/PH*2)*4;
+    ArcadeAudio.sfx('brick');
+  }
+  // 得分
+  if(ball.x<0){as++;hud();ArcadeAudio.sfx('miss');end2(1);}
+  if(ball.x>W){ps++;hud();ArcadeAudio.sfx('score');end2(-1);}
+}
+function end2(dir){
+  if(ps>=7)return finish(true);
+  if(as>=7)return finish(false);
+  speed=Math.min(8,speed+.25);
+  serve(dir);
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,W,H);
+  // 中线
+  ctx.setLineDash([8,10]);ctx.strokeStyle='rgba(163,230,53,.3)';
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+  // 球拍
+  ctx.fillStyle='#a3e635';ctx.shadowColor='#a3e635';ctx.shadowBlur=10;
+  ctx.fillRect(20,player.y,PW,PH);
+  ctx.fillStyle='#f472b6';ctx.shadowColor='#f472b6';
+  ctx.fillRect(W-20-PW,ai.y,PW,PH);
+  // 球
+  ctx.fillStyle='#facc15';ctx.shadowColor='#facc15';
+  ctx.beginPath();ctx.arc(ball.x,ball.y,6,0,7);ctx.fill();
+  ctx.shadowBlur=0;
+  if(!playing&&!ended){
+    ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+    ctx.fillText('按 ↑ / ↓ 或移动鼠标发球',W/2,H/2+40);
+  }
+}
+function loop(){
+  if(!ended){update();draw();}
+  raf=requestAnimationFrame(loop);
+}
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'||e.key==='w'){keys.up=true;e.preventDefault();}
+  if(e.key==='ArrowDown'||e.key==='s'){keys.down=true;e.preventDefault();}
+});
+addEventListener('keyup',e=>{
+  if(e.key==='ArrowUp'||e.key==='w')keys.up=false;
+  if(e.key==='ArrowDown'||e.key==='s')keys.down=false;
+});
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect();
+  player.y=Math.max(0,Math.min(H-PH,(e.clientY-r.top)*(H/r.height)-PH/2));
+});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  player.y=Math.max(0,Math.min(H-PH,(e.touches[0].clientY-r.top)*(H/r.height)-PH/2));
+},{passive:false});
+newGame();
+ArcadeAudio.bgm('march');
+</script>
+</body>
+</html>
