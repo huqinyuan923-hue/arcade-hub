@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Arcade Hub",
     title: "Arcade Hub · 霓虹街机游戏厅",
-    description: "2048、贪吃蛇、俄罗斯方块等 34 款经典小游戏即点即玩，冲击排行榜。",
+    description: "2048、贪吃蛇、俄罗斯方块等 40 款经典小游戏即点即玩，冲击排行榜。",
     images: [{ url: "/icon.svg", width: 64, height: 64, alt: "Arcade Hub" }],
   },
 };

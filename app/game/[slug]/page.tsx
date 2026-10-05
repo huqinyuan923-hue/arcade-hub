@@ -83,6 +83,22 @@ export default async function GameDetailPage({
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         <div className="flex flex-col gap-4">
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "VideoGame",
+                name: game.title,
+                description: game.description,
+                genre: game.category,
+                image: game.thumbnail,
+                playMode: "SinglePlayer",
+                applicationCategory: "Game",
+                offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },
+              }),
+            }}
+          />
           <GameFrame slug={game.slug} title={game.title} src={src} />
 
           <div className="card p-4 flex flex-wrap items-center justify-between gap-4">

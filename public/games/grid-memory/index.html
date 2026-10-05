@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>记忆矩阵</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#a3e635;text-shadow:0 0 10px rgba(163,230,53,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;gap:5px;background:#1a1633;padding:10px;border-radius:12px;border:1px solid rgba(163,230,53,.35);}
+  .c{width:52px;height:52px;border-radius:8px;background:#221d44;cursor:pointer;transition:background .1s,transform .06s;}
+  .c.lit{background:#a3e635;box-shadow:0 0 10px rgba(163,230,53,.7);}
+  .c.good{background:#22d3ee;box-shadow:0 0 10px rgba(34,211,238,.7);}
+  .c:hover{transform:scale(1.05);}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;text-align:center;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #a3e635;color:#d9f99d;padding:8px 22px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>🧠 记忆矩阵</h1>
+<div class="hud"><span>关卡 <b id="lv">1</b></span><span>最高关 <b id="hi">0</b></span></div>
+<div id="grid"></div>
+<p id="msg">先闪现哪些格子亮了，再凭记忆全部点出来</p>
+<button id="btnNew">开始挑战</button>
+<script>
+const gridEl=document.getElementById('grid'),msg=document.getElementById('msg');
+let N=3,g,litSet,level=1,phase,found;
+let hi=+(localStorage.getItem('agridhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  const size=Math.min(6,3+Math.floor(level/3)); // 每 3 关扩一圈
+  const count=Math.min(size*size-4,2+level);     // 亮格数量随关卡增加
+  N=size;
+  gridEl.style.gridTemplate=`repeat(${N},52px)/repeat(${N},52px)`;
+  document.getElementById('lv').textContent=level;
+  g=Array.from({length:N*N},(_,i)=>i);
+  // 随机选 count 个亮格
+  litSet=new Set(g.sort(()=>Math.random()-.5).slice(0,count));
+  found=new Set();
+  phase='show';
+  build();
+  msg.textContent=`👀 记住 ${count} 个亮格…`;
+  ArcadeAudio.sfx('flip');
+  setTimeout(()=>{
+    gridEl.querySelectorAll('.c').forEach(c=>c.classList.remove('lit'));
+    phase='recall';
+    msg.textContent=`🖐️ 点出刚才亮过的格子（${litSet.size} 个）`;
+  },1200+level*250);
+}
+function build(){
+  gridEl.innerHTML='';
+  for(let i=0;i<N*N;i++){
+    const d=document.createElement('div');
+    d.className='c'+(phase==='show'&&litSet.has(i)?' lit':'');
+    d.addEventListener('click',()=>tap(i,d));
+    gridEl.appendChild(d);
+  }
+}
+function tap(i,d){
+  if(phase!=='recall'||d.classList.contains('good'))return;
+  if(litSet.has(i)){
+    d.classList.add('good');
+    found.add(i);
+    ArcadeAudio.sfx('click');
+    if(found.size===litSet.size){
+      phase='done';
+      ArcadeAudio.sfx('levelup');
+      const score=level*50;
+      ArcadeBridge.submitScore(score);
+      if(level>hi){hi=level;localStorage.setItem('agridhi',hi);document.getElementById('hi').textContent=hi;}
+      msg.style.color='#a3e635';
+      msg.textContent=`✅ 全对！+${score} · 下一关…`;
+      level++;
+      setTimeout(newGame,1100);
+    }
+  }else{
+    phase='done';
+    ArcadeAudio.stopBgm();
+    ArcadeAudio.sfx('over');
+    const score=level*20;
+    ArcadeBridge.submitScore(score);
+    msg.style.color='#f472b6';
+    msg.textContent=`❌ 点错了 · 坚持到第 ${level} 关`;
+    level=1;
+    document.getElementById('lv').textContent=1;
+    setTimeout(()=>{msg.textContent='';newGame();},1400);
+  }
+}
+document.getElementById('btnNew').addEventListener('click',()=>{level=1;newGame();});
+newGame();
+ArcadeAudio.bgm('chill');
+</script>
+</body>
+</html>

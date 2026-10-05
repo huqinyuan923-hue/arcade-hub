@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>点亮霓虹</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#facc15;text-shadow:0 0 10px rgba(250,204,21,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #grid{display:grid;grid-template:repeat(5,58px)/repeat(5,58px);gap:6px;background:#1a1633;padding:10px;border-radius:14px;border:1px solid rgba(250,204,21,.35);}
+  .lt{border-radius:10px;background:#221d44;cursor:pointer;transition:background .1s,box-shadow .1s;}
+  .lt.on{background:#facc15;box-shadow:0 0 14px rgba(250,204,21,.8);}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #facc15;color:#fef9c3;padding:8px 22px;border-radius:10px;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>💡 点亮霓虹</h1>
+<div class="hud"><span>关卡 <b id="lv">1</b></span><span>步数 <b id="mv">0</b></span><span>最高关 <b id="hi">0</b></span></div>
+<div id="grid"></div>
+<p id="msg">点击一格，它和上下左右都会翻转亮灭 —— 把全部灯点亮！</p>
+<button id="btnNew">重开本关</button>
+<script>
+const N=5,gridEl=document.getElementById('grid'),msg=document.getElementById('msg');
+let g,level=1,moves=0;
+let hi=+(localStorage.getItem('alightshi')||0);
+document.getElementById('hi').textContent=hi;
+
+function toggle(x,y){
+  if(x>=0&&x<N&&y>=0&&y<N)g[y][x]=!g[y][x];
+}
+function newGame(){
+  g=Array.from({length:N},()=>Array(N).fill(false));
+  moves=0;
+  document.getElementById('mv').textContent=0;
+  document.getElementById('lv').textContent=level;
+  // 从全亮状态随机按 (level*2+2) 次生成谜题，保证有解
+  const presses=level*2+2;
+  for(let k=0;k<presses;k++)apply(Math.random()*N|0,Math.random()*N|0);
+  render();
+}
+function apply(x,y){toggle(x,y);toggle(x-1,y);toggle(x+1,y);toggle(x,y-1);toggle(x,y+1);}
+function click(x,y){
+  apply(x,y);
+  moves++;
+  document.getElementById('mv').textContent=moves;
+  ArcadeAudio.sfx('flip');
+  render();
+  if(g.every(r=>r.every(Boolean)))win();
+}
+function win(){
+  ArcadeAudio.sfx('win');
+  const score=level*100+Math.max(0,200-moves*5);
+  ArcadeBridge.submitScore(score);
+  if(level>hi){hi=level;localStorage.setItem('alightshi',hi);document.getElementById('hi').textContent=hi;}
+  msg.style.color='#a3e635';
+  msg.textContent=`🏆 第 ${level} 关通过！+${score} 分`;
+  level++;
+  setTimeout(()=>{msg.textContent='';newGame();},1200);
+}
+function render(){
+  gridEl.innerHTML='';
+  g.forEach((row,y)=>row.forEach((v,x)=>{
+    const d=document.createElement('div');
+    d.className='lt'+(v?' on':'');
+    d.addEventListener('click',()=>click(x,y));
+    gridEl.appendChild(d);
+  }));
+}
+document.getElementById('btnNew').addEventListener('click',()=>{ArcadeAudio.sfx('move');newGame();});
+newGame();
+ArcadeAudio.bgm('dream');
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>节奏点点</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#f472b6;text-shadow:0 0 10px rgba(244,114,182,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  #stage{position:relative;width:min(92vw,320px);height:420px;background:#060414;border:1px solid rgba(244,114,182,.4);border-radius:12px;overflow:hidden;}
+  .lane{position:absolute;top:0;bottom:0;width:25%;border-right:1px solid rgba(244,114,182,.12);}
+  .note{position:absolute;width:22%;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#0d0b1e;}
+  #hitline{position:absolute;bottom:56px;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#f472b6,transparent);}
+  .pads{display:flex;width:min(92vw,320px);gap:6px;margin-top:6px;}
+  .pads button{flex:1;height:56px;font-size:20px;font-weight:800;border-radius:10px;cursor:pointer;background:rgba(124,58,237,.2);border:1px solid rgba(167,139,250,.5);color:#ddd6fe;}
+  #msg{min-height:22px;font-size:14px;color:#94a3b8;}
+  button.start{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #f472b6;color:#fce7f3;padding:9px 26px;border-radius:10px;cursor:pointer;}
+  #judge{position:absolute;top:30%;left:0;right:0;text-align:center;font-size:22px;font-weight:800;pointer-events:none;}
+</style>
+</head>
+<body>
+<h1>🎵 节奏点点</h1>
+<div class="hud"><span>得分 <b id="score">0</b></span><span>连击 <b id="combo">0</b></span><span>最高 <b id="hi">0</b></span></div>
+<div id="stage">
+  <div class="lane" style="left:0"></div><div class="lane" style="left:25%"></div><div class="lane" style="left:50%"></div><div class="lane" style="left:75%"></div>
+  <div id="hitline"></div>
+  <div id="judge"></div>
+</div>
+<div class="pads">
+  <button data-l="0">D</button><button data-l="1">F</button><button data-l="2">J</button><button data-l="3">K</button>
+</div>
+<p id="msg">D F J K 四键对应四条轨道，方块落线瞬间点击 · 手机点按钮</p>
+<button class="start" id="btnStart">开始演奏</button>
+<script>
+const stage=document.getElementById('stage'),judgeEl=document.getElementById('judge'),msg=document.getElementById('msg');
+const COLORS=['#f472b6','#a3e635','#22d3ee','#facc15'];
+const KEYMAP={d:0,f:1,j:2,k:2};KEYMAP.j=2;KEYMAP.k=3;
+let notes,score,combo,maxCombo,running,t0,timer,raf,frame,speed;
+let hi=+(localStorage.getItem('arhythmhi')||0);
+document.getElementById('hi').textContent=hi;
+
+function newGame(){
+  notes=[];score=0;combo=0;maxCombo=0;frame=0;speed=2.6;
+  document.getElementById('score').textContent=0;
+  document.getElementById('combo').textContent=0;
+  stage.querySelectorAll('.note').forEach(n=>n.remove());
+}
+function start(){
+  if(running)return;
+  running=true;t0=Date.now();
+  document.getElementById('btnStart').style.display='none';
+  ArcadeAudio.bgm('pulse');
+  timer=setInterval(()=>{ // 60 秒一首
+    if(Date.now()-t0>62000)finish();
+  },500);
+  loop();
+}
+function spawn(){
+  const lane=Math.random()*4|0;
+  const el=document.createElement('div');
+  el.className='note';
+  el.style.background=COLORS[lane];
+  el.style.left=`calc(${lane*25}% + 1.5%)`;
+  el.style.top='-40px';
+  el.dataset.lane=lane;
+  el.dataset.y=-40;
+  stage.appendChild(el);
+  notes.push({el,lane,y:-40,hit:false});
+}
+function loop(){
+  if(!running)return;
+  frame++;
+  if(frame%Math.max(22,55-Math.floor((Date.now()-t0)/4000))===0)spawn();
+  const hitY=stage.clientHeight-56-17;
+  notes.forEach(n=>{
+    if(n.hit)return;
+    n.y+=speed;
+    n.el.style.top=n.y+'px';
+    if(n.y>hitY+40){ // 漏掉
+      n.hit=true;n.el.remove();miss(n.lane);
+    }
+  });
+  notes=notes.filter(n=>!n.hit);
+  raf=requestAnimationFrame(loop);
+}
+function judgeShow(text,color){
+  judgeEl.textContent=text;
+  judgeEl.style.color=color;
+  judgeEl.animate([{opacity:1},{opacity:0}],{duration:500});
+}
+function hitLane(l){
+  if(!running)return;
+  const hitY=stage.clientHeight-56;
+  // 找该轨道最近的未击中音符
+  let best=null,bd=1e9;
+  notes.forEach(n=>{if(n.lane!==l||n.hit)return;const d=Math.abs(n.y+17-hitY);if(d<bd){bd=d;best=n;}});
+  if(best&&bd<44){
+    best.hit=true;best.el.remove();
+    combo++;score+=combo>=10?30:combo>=5?20:10;
+    maxCombo=Math.max(maxCombo,combo);
+    document.getElementById('score').textContent=score;
+    document.getElementById('combo').textContent=combo;
+    ArcadeAudio.tone(392+l*110,0.1,'square',0.3);
+    judgeShow(bd<16?'PERFECT!':'GOOD',bd<16?'#a3e635':'#facc15');
+  }else{
+    combo=0;
+    document.getElementById('combo').textContent=0;
+    ArcadeAudio.sfx('miss');
+    judgeShow('MISS','#f87171');
+  }
+}
+function miss(l){
+  combo=0;
+  document.getElementById('combo').textContent=0;
+}
+function finish(){
+  running=false;clearInterval(timer);
+  cancelAnimationFrame(raf);
+  ArcadeAudio.stopBgm();
+  if(score>hi){hi=score;localStorage.setItem('arhythmhi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeAudio.sfx(score>1000?'win':'over');
+  ArcadeBridge.submitScore(score);
+  msg.style.color=score>1000?'#a3e635':'#f472b6';
+  msg.textContent=`🎵 演奏结束！得分 ${score} · 最大连击 ${maxCombo}`;
+  document.getElementById('btnStart').style.display='';
+  document.getElementById('btnStart').textContent='再来一首';
+}
+document.querySelectorAll('.pads button').forEach(b=>b.addEventListener('pointerdown',()=>hitLane(+b.dataset.l)));
+addEventListener('keydown',e=>{
+  const l={d:0,f:1,j:2,k:3}[e.key.toLowerCase()];
+  if(l!==undefined)hitLane(l);
+});
+newGame();
+</script>
+</body>
+</html>

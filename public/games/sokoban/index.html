@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>推箱子</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;padding:10px;}
+  h1{color:#fb923c;text-shadow:0 0 10px rgba(251,146,60,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(251,146,60,.4);border-radius:10px;max-width:92vw;}
+  .btns{display:flex;gap:8px;}
+  button{background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(167,139,250,.2));border:1px solid #fb923c;color:#ffedd5;padding:8px 20px;border-radius:10px;cursor:pointer;}
+  #msg{min-height:22px;font-size:15px;color:#94a3b8;}
+  p.tip{color:#64748b;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<h1>📦 推箱子</h1>
+<div class="hud"><span>关卡 <b id="lv">1</b>/6</span><span>步数 <b id="steps">0</b></span></div>
+<canvas id="cv" width="440" height="440"></canvas>
+<div class="btns">
+  <button id="btnUndo">↩ 撤销</button>
+  <button id="btnReset">重玩本关</button>
+  <button id="btnSkip">跳过 ⏭</button>
+</div>
+<p id="msg">把所有 📦 推到黄色目标点上</p>
+<p class="tip">方向键 / WASD / 滑动移动 · 只能推不能拉 · 撤销支持无限步</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const S=44;
+// 图例：#墙 .空 @人 $箱 *目标 +人在目标 B箱在目标
+const LEVELS=[
+  ["#####","#..*#","#.$.#","#.@.#","#..*#","#####"],
+  ["######","#....#","#.$$@#","#..*.#","#....#","######"],
+  ["#######","#.....#","#.$$*.#","#.@...#","#..$*.#","#.....#","#######"],
+  ["#######","#..*..#","#.$.$.##","#..@..#","##.$..#","#..*..#","#######"],
+  ["########","#......#","#.*$.*.#","#..@...#","#.*$.*.#","#......#","########"],
+  ["#########","#...*...#","#.$$.$$.#","#..@....#","#...*...#","#########"],
+];
+let lv=1,g,px,py,steps=0,hist=[];
+const W=()=>g[0].length,H=()=>g.length;
+
+function load(){
+  g=LEVELS[lv-1].map(r=>r.split(''));
+  steps=0;hist=[];
+  document.getElementById('steps').textContent=0;
+  document.getElementById('lv').textContent=lv;
+  outer:for(let y=0;y<H();y++)for(let x=0;x<W();x++){
+    if(g[y][x]==='@'){px=x;py=y;break outer;}
+    if(g[y][x]==='+'){px=x;py=y;break outer;}
+  }
+  draw();
+}
+function cellAt(x,y){return g[y]&&g[y][x]||'#';}
+function isTarget(x,y){return cellAt(x,y)==='*'||cellAt(x,y)==='+'||cellAt(x,y)==='B';}
+function move(dx,dy){
+  if(over())return;
+  const nx=px+dx,ny=py+dy;
+  const c=cellAt(nx,ny);
+  if(c==='#')return;
+  const snapshot=JSON.stringify(g)+JSON.stringify([px,py]);
+  let moved=false;
+  if(c==='$'||c==='B'){
+    const bx=nx+dx,by=ny+dy;
+    const bc=cellAt(bx,by);
+    if(bc!=='.'&&bc!=='*')return; // 箱子被堵
+    g[ny][nx]=c==='$'?'@':'+';
+    g[by][bx]=bc==='*'?'B':'$';
+    moved=true;
+  }else{
+    g[ny][nx]=c==='.'?'@':'+';
+    moved=true;
+  }
+  // 人离开的格子：如果原来是目标点，恢复为 *，否则恢复 .
+  g[py][px]=isTarget(px,py)?'*':'.';
+  px=nx;py=ny;
+  steps++;
+  document.getElementById('steps').textContent=steps;
+  hist.push(snapshot);
+  ArcadeAudio.sfx('move');
+  draw();
+  checkWin();
+}
+function over(){return false;}
+function undo(){
+  if(!hist.length)return;
+  const s=JSON.parse(hist.pop());
+  g=s[0];[px,py]=s[1];
+  steps--;
+  document.getElementById('steps').textContent=steps;
+  ArcadeAudio.sfx('flip');
+  draw();
+}
+function checkWin(){
+  for(let y=0;y<H();y++)for(let x=0;x<W();x++){
+    if(cellAt(x,y)==='$')return; // 还有箱子不在目标上
+  }
+  ArcadeAudio.stopBgm();
+  ArcadeAudio.sfx('win');
+  const score=lv*150+Math.max(0,150-steps*2);
+  ArcadeBridge.submitScore(score);
+  msg.style.color='#a3e635';
+  if(lv<LEVELS.length){
+    msg.textContent=`🎉 第 ${lv} 关通过！+${score}`;
+    lv++;
+    setTimeout(()=>{msg.textContent='';load();},1200);
+  }else{
+    msg.textContent=`🏆 全部 6 关通关！`;
+  }
+}
+function draw(){
+  ctx.fillStyle='#120f28';ctx.fillRect(0,0,cv.width,cv.height);
+  const ox=(cv.width-W()*S)/2,oy=(cv.height-H()*S)/2;
+  for(let y=0;y<H();y++)for(let x=0;x<W();x++){
+    const c=cellAt(x,y);
+    const X=ox+x*S,Y=oy+y*S;
+    if(c==='#'){ctx.fillStyle='#4a3f78';ctx.fillRect(X+1,Y+1,S-2,S-2);}
+    else{
+      ctx.fillStyle=c==='*'||c==='+'||c==='B'?'rgba(250,204,21,.25)':'#0a0819';
+      ctx.fillRect(X+1,Y+1,S-2,S-2);
+    }
+  }
+  // 箱子与人
+  ctx.font=`${S-10}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(let y=0;y<H();y++)for(let x=0;x<W();x++){
+    const c=cellAt(x,y);
+    const X=ox+x*S+S/2,Y=oy+y*S+S/2;
+    if(c==='$')ctx.fillText('📦',X,Y);
+    if(c==='B')ctx.fillText('✅',X,Y);
+    if(c==='@'||c==='+')ctx.fillText('😗',X,Y);
+  }
+}
+addEventListener('keydown',e=>{
+  const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1]}[e.key];
+  if(m){e.preventDefault();move(m[0],m[1]);}
+});
+let sw=null;
+addEventListener('touchstart',e=>sw=e.touches[0],{passive:true});
+addEventListener('touchend',e=>{
+  if(!sw)return;
+  const dx=e.changedTouches[0].clientX-sw.clientX,dy=e.changedTouches[0].clientY-sw.clientY;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+  Math.abs(dx)>Math.abs(dy)?move(Math.sign(dx),0):move(0,Math.sign(dy));
+  sw=null;
+},{passive:true});
+document.getElementById('btnUndo').addEventListener('click',undo);
+document.getElementById('btnReset').addEventListener('click',()=>{ArcadeAudio.sfx('move');load();});
+document.getElementById('btnSkip').addEventListener('click',()=>{
+  if(lv<LEVELS.length){lv++;load();}else msg.textContent='已经是最后一关';
+});
+load();
+ArcadeAudio.bgm('march');
+</script>
+</body>
+</html>

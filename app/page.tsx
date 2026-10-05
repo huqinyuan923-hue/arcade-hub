@@ -42,6 +42,10 @@ export default async function HomePage() {
     seen.add(g.slug);
     return true;
   });
+  // 今日推荐：按日期确定性轮换，每天一款
+  const dailyPool = [...featured, ...hottest, ...newest];
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  const dailyPick = dailyPool.length ? dailyPool[dayIndex % dailyPool.length] : null;
 
   return (
     <div className="flex flex-col gap-10">
@@ -80,6 +84,26 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {dailyPick && (
+        <section className="card p-4 sm:p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={dailyPick.thumbnail || "/thumbs/default.svg"}
+              alt={dailyPick.title}
+              className="w-16 h-12 rounded-lg object-cover shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">📅 今日推荐 · {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}</p>
+              <p className="font-bold text-slate-100 truncate">{dailyPick.title}</p>
+            </div>
+          </div>
+          <Link href={`/game/${dailyPick.slug}`} className="btn-neon px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap">
+            ▶ 去玩
+          </Link>
+        </section>
+      )}
 
       {featured.length > 0 && (
         <section>
