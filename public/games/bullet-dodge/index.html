@@ -137,12 +137,10 @@ function loop(){
 function moveTo(e){
   const r=cv.getBoundingClientRect();
   const nx=(e.clientX-r.left)*(cv.width/r.width),ny=(e.clientY-r.top)*(cv.height/r.height);
-  const wasOutside=!started;
   me.x=Math.max(8,Math.min(cv.width-8,nx));
   me.y=Math.max(8,Math.min(cv.height-8,ny));
-  if(wasOutside&&!bulletsDead())start();
+  if(!started)start();
 }
-function bulletsDead(){return false;}
 cv.addEventListener('mousemove',moveTo);
 addEventListener('keydown',e=>{
   if((e.key==='p'||e.key==='P')&&alive&&started)paused=!paused;

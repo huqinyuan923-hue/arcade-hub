@@ -25,6 +25,7 @@ export default function GameFrame({
   const [frameKey, setFrameKey] = useState(0);
   const [toast, setToast] = useState<Toast>(null);
   const [best, setBest] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   function showToast(text: string, kind: ToastKind = "info") {
@@ -43,6 +44,7 @@ export default function GameFrame({
   // 载入后自动聚焦；鼠标移入/点击游戏区时重新聚焦
   const focusFrame = () => frameRef.current?.focus();
   useEffect(() => {
+    setLoading(true);
     const t = window.setTimeout(focusFrame, 300);
     return () => window.clearTimeout(t);
   }, [frameKey]);
@@ -110,6 +112,7 @@ export default function GameFrame({
           src={src}
           title={title}
           aria-label={`${title} 游戏区域`}
+          onLoad={() => setLoading(false)}
           className="absolute inset-0 w-full h-full outline-none"
           sandbox={
             sandbox ??
@@ -118,6 +121,16 @@ export default function GameFrame({
           allow="autoplay; fullscreen; gamepad *; microphone; clipboard-write"
           allowFullScreen
         />
+        {loading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#0d0b1e] pointer-events-none">
+            <div className="flex gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-neon-cyan animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-neon-pink animate-pulse [animation-delay:150ms]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-neon-yellow animate-pulse [animation-delay:300ms]" />
+            </div>
+            <p className="font-arcade text-[9px] text-slate-500 tracking-widest">LOADING…</p>
+          </div>
+        )}
         {toast && (
           <div
             className={`absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg backdrop-blur border z-10 ${

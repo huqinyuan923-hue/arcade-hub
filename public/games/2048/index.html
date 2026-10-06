@@ -71,7 +71,7 @@ function move(dir){
   if(tiles.join(',')!==before){
     ArcadeAudio.sfx('move');
     // 存档供撤销（不含本步 spawn）
-    prev={tiles:tiles.slice(),score,overTile:null};
+    prev={tiles:tiles.slice(),score};
     spawn();draw();
     if(tiles.includes(2048))ArcadeAudio.sfx('win');
     if(score>hi){hi=score;localStorage.setItem('a2048hi',hi);document.getElementById('hi').textContent=hi;}

@@ -88,7 +88,7 @@ export default async function LeaderboardPage({
         <h1 className="font-arcade text-xl sm:text-2xl text-neon-yellow" style={{ textShadow: "0 0 12px rgba(250,204,21,0.6)" }}>
           HALL OF FAME
         </h1>
-        <p className="text-slate-400 text-sm mt-3">名人堂 —— 用成绩说话</p>
+        <p className="text-slate-400 text-sm mt-3">名人堂 —— 用成绩说话 <span className="text-xs text-slate-600">· 成绩实时更新</span></p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 items-start">

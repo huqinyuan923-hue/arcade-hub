@@ -76,7 +76,6 @@ function tick(){
     const [dx,dy]=p.dir;
     if(MAP[p.y+dy]&&MAP[p.y+dy][p.x+dx]==='0'){p.x+=dx;p.y+=dy;}
   }
-  if(started)start();
   // 吃豆
   const di=dots.findIndex(d=>d.x===p.x&&d.y===p.y);
   if(di>=0){

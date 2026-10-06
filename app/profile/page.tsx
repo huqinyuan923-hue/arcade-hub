@@ -27,7 +27,22 @@ export default function ProfilePage() {
   }, []);
 
   if (state === "loading") {
-    return <div className="py-24 text-center text-slate-400">加载中…</div>;
+    return (
+      <div className="flex flex-col gap-8 py-6">
+        <div className="h-8 w-52 rounded-lg bg-white/5 animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="card p-4 h-28 animate-pulse" />
+          ))}
+        </div>
+        <div className="h-6 w-36 rounded bg-white/5 animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="card h-32 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (state === "guest") {

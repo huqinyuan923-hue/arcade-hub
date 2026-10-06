@@ -39,7 +39,6 @@
 <script>
 const stage=document.getElementById('stage'),judgeEl=document.getElementById('judge'),msg=document.getElementById('msg');
 const COLORS=['#f472b6','#a3e635','#22d3ee','#facc15'];
-const KEYMAP={d:0,f:1,j:2,k:2};KEYMAP.j=2;KEYMAP.k=3;
 let notes,score,combo,maxCombo,running,t0,timer,raf,frame,speed;
 let hi=+(localStorage.getItem('arhythmhi')||0);
 document.getElementById('hi').textContent=hi;

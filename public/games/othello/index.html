@@ -81,9 +81,6 @@ function finish(){
     ?`🏆 你赢了！⚪${w} : ⚫${b}`
     :w===b?'🤝 平局！':'🤖 AI 赢了 ⚪'+w+' : ⚫'+b;
 }
-function passTurn(){
-  if(playing&&me)return; // 玩家回合外才检查
-}
 function afterMove(){
   const opp=me?1:2;
   if(anyMove(opp)){

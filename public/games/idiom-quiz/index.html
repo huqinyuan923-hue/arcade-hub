@@ -23,7 +23,7 @@
 </head>
 <body>
 <h1>📜 成语填空</h1>
-<div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>题数 <b id="total">0</b></span></div>
+  <div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>最佳 <b id="hi">0</b></span><span>题数 <b id="total">0</b></span></div>
 <div id="card">
   <div class="idiom" id="idiom"></div>
   <div class="hint" id="hint"></div>
@@ -55,6 +55,8 @@ const BANK=[
 ];
 const idioms=[...BANK].sort(()=>Math.random()-.5);
 let idx=0,score=0,streak=0,total=0,locked=false;
+let hi=+(localStorage.getItem('aidiomhi')||0);
+document.getElementById('hi').textContent=hi;
 const idiomEl=document.getElementById('idiom'),hintEl=document.getElementById('hint'),optsEl=document.getElementById('opts'),msg=document.getElementById('msg');
 
 function show(){
@@ -73,6 +75,7 @@ function show(){
       total++;document.getElementById('total').textContent=total;
       if(o.correct){
         streak++;score+=50+streak*10;
+        if(score>hi){hi=score;localStorage.setItem('aidiomhi',hi);document.getElementById('hi').textContent=hi;}
         document.getElementById('streak').textContent=streak;
         document.getElementById('score').textContent=score;
         ArcadeAudio.sfx('score');

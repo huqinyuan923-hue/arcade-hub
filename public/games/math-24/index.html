@@ -27,7 +27,7 @@
 </head>
 <body>
 <h1>🧮 24 点速算</h1>
-<div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>时间 <b id="time">60</b>s</span></div>
+  <div class="hud"><span>得分 <b id="score">0</b></span><span>连对 <b id="streak">0</b></span><span>最佳连对 <b id="hi">0</b></span><span>时间 <b id="time">60</b>s</span></div>
 <div id="cards"></div>
 <div id="expr"></div>
 <div class="ops">
@@ -46,6 +46,8 @@
 <script>
 const cardsEl=document.getElementById('cards'),exprEl=document.getElementById('expr'),msgEl=document.getElementById('msg');
 let nums,used,expr,score=0,streak=0,timer,left;
+let hi=+(localStorage.getItem('amath24hi')||0);
+document.getElementById('hi').textContent=hi;
 
 function newRound(){
   do{nums=Array.from({length:4},()=>1+Math.random()*13|0);}while(!solvable(nums));
@@ -95,8 +97,7 @@ function reset(){
 }
 function fail(text){
   clearInterval(timer);
-  streak=0;document.getElementById('streak').textContent=0;
-  ArcadeAudio.sfx('over');
+  streak=0;document.getElementById('streak').textContent=0;  ArcadeAudio.sfx('over');
   msgEl.style.color='#f472b6';
   msgEl.textContent=text+' 参考答案：'+(findSolution(nums)||'—');
 }
@@ -109,7 +110,9 @@ function submit(){
   if(Math.abs(v-24)<1e-9){
     clearInterval(timer);
     const gain=100+streak*20+left;
-    streak++;score+=gain;
+    streak++;
+    score+=gain;
+    if(streak>hi){hi=streak;localStorage.setItem('amath24hi',hi);document.getElementById('hi').textContent=hi;}
     document.getElementById('score').textContent=score;
     document.getElementById('streak').textContent=streak;
     ArcadeAudio.sfx('win');
