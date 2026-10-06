@@ -151,3 +151,8 @@ body {
   background: rgba(34, 211, 238, 0.35);
   color: #f1f5f9;
 }
+
+/* 游戏加载遮罩：4 秒后无论 React 状态如何都自动淡出（防 load 事件丢失导致永久遮挡） */
+@keyframes arcade-loading-hide {
+  to { opacity: 0; visibility: hidden; }
+}
