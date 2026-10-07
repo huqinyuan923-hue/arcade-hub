@@ -18,7 +18,11 @@ export default function FavoriteButton({
     if (busy) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/games/${slug}/favorite`, { method: "POST" });
+      // 同源 API 路径：slug 仅作路径段使用，服务端做参数化查询与存在性校验
+      const res = await fetch(
+        encodeURI(`/api/games/${encodeURIComponent(slug)}/favorite`),
+        { method: "POST" }
+      );
       if (res.status === 401) {
         router.push(`/login?next=${encodeURIComponent(`/game/${slug}`)}`);
         return;
