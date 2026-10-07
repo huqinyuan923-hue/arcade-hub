@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹陨石</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(34,211,238,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  .pads{display:none;gap:8px;}
+  @media (pointer:coarse){.pads{display:flex;}}
+  .pads button{width:56px;height:48px;font-size:20px;background:#1a1630;color:#e7e6f5;border:1px solid #2e2a55;border-radius:10px;}
+  p.tip{color:#64748b;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<h1>☄️ 霓虹陨石</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>波次 <b id="wave">1</b></span><span>生命 <b id="lives">3</b></span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="480" height="480"></canvas>
+<div class="pads">
+  <button id="pL">↺</button><button id="pT">🚀</button><button id="pF">💥</button><button id="pR">↻</button>
+</div>
+<p class="tip">←→ 旋转 · ↑ 推进 · 空格开火 · 大陨石 20 分 · 中 50 · 小 100 · 别撞上</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let ship,rocks,bullets,parts,score,lives,wave,dead,started,frame,cool,raf;
+let hi=+(localStorage.getItem('aasteroids_hi')||0);
+document.getElementById('hi').textContent=hi;
+const keys={left:false,right:false,thrust:false,fire:false};
+
+function newGame(){
+  ship={x:cv.width/2,y:cv.height/2,a:-Math.PI/2,vx:0,vy:0,r:12,inv:120};
+  rocks=[];bullets=[];parts=[];
+  score=0;lives=3;wave=1;dead=false;started=false;frame=0;cool=0;
+  spawnWave();
+  hud();cancelAnimationFrame(raf);loop();
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('按任意方向键 / 点击 开始',cv.width/2,cv.height/2+60);
+}
+function hud(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent=lives;document.getElementById('wave').textContent=wave;}
+function spawnWave(){
+  for(let i=0;i<2+wave;i++){
+    const edge=Math.floor(Math.random()*4);
+    const x=edge===0?0:edge===1?cv.width:Math.random()*cv.width;
+    const y=edge===2?0:edge===3?cv.height:Math.random()*cv.height;
+    if(Math.hypot(x-ship.x,y-ship.y)<110){i--;continue;}
+    rocks.push(mkRock(x,y,3));
+  }
+}
+function mkRock(x,y,size){
+  const sp=0.5+(3-size)*0.5+wave*0.12;
+  const a=Math.random()*Math.PI*2;
+  return {x,y,size,r:[0,10,20,32][size],vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,rot:Math.random()*6.28,vr:(Math.random()-0.5)*0.06,
+    pts:Array.from({length:9},(_,i)=>({a:i/9*Math.PI*2,d:0.75+Math.random()*0.3}))};
+}
+function start(){
+  if(started||dead)return;
+  started=true;ArcadeAudio.bgm('pulse');
+}
+function fire(){
+  if(dead||cool>0)return;
+  cool=9;
+  bullets.push({x:ship.x+Math.cos(ship.a)*14,y:ship.y+Math.sin(ship.a)*14,vx:Math.cos(ship.a)*7+ship.vx*0.4,vy:Math.sin(ship.a)*7+ship.vy*0.4,life:55});
+  ArcadeAudio.sfx('shoot');
+}
+function boom(x,y,color,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20+Math.random()*18,c:color});}
+function die(){dead=true;ArcadeAudio.bgm(null);ArcadeAudio.sfx('over');boom(ship.x,ship.y,'#f472b6',26);
+  if(score>hi){hi=score;localStorage.setItem('aasteroids_hi',hi);document.getElementById('hi').textContent=hi;}
+  ArcadeBridge.submitScore(score);
+  setTimeout(()=>{dead=false;newGame();},1800);}
+function wrap(o){if(o.x<0)o.x+=cv.width;if(o.x>cv.width)o.x-=cv.width;if(o.y<0)o.y+=cv.height;if(o.y>cv.height)o.y-=cv.height;}
+function update(){
+  frame++;
+  if(cool>0)cool--;
+  if(ship.inv>0)ship.inv--;
+  if(keys.left)ship.a-=0.085;
+  if(keys.right)ship.a+=0.085;
+  if(keys.thrust){ship.vx+=Math.cos(ship.a)*0.11;ship.vy+=Math.sin(ship.a)*0.11;}
+  ship.vx*=0.992;ship.vy*=0.992;
+  ship.x+=ship.vx;ship.y+=ship.vy;wrap(ship);
+  if(started&&keys.fire)fire();
+  for(const b of bullets){b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b);}
+  bullets=bullets.filter(b=>b.life>0);
+  for(const r of rocks){r.x+=r.vx;r.y+=r.vy;r.rot+=r.vr;wrap(r);}
+  // 子弹 × 陨石
+  for(const b of bullets){
+    for(const r of rocks){
+      if(Math.hypot(b.x-r.x,b.y-r.y)<r.r){
+        b.life=0;r.dead=true;
+        const pts=[0,20,50,100][r.size];
+        score+=pts;hud();ArcadeAudio.sfx('eat');
+        boom(r.x,r.y,'#22d3ee',10);
+        if(r.size>1){rocks.push(mkRock(r.x,r.y,r.size-1),mkRock(r.x,r.y,r.size-1));}
+        break;
+      }
+    }
+  }
+  bullets=bullets.filter(b=>b.life>0);
+  rocks=rocks.filter(r=>!r.dead);
+  if(started&&rocks.length===0){wave++;hud();spawnWave();ArcadeAudio.sfx('level');}
+  // 飞船 × 陨石
+  if(started&&ship.inv<=0){
+    for(const r of rocks){
+      if(Math.hypot(ship.x-r.x,ship.y-r.y)<r.r+8){
+        lives--;hud();boom(ship.x,ship.y,'#fb7185',18);
+        ship.x=cv.width/2;ship.y=cv.height/2;ship.vx=ship.vy=0;ship.inv=120;
+        if(lives<=0){die();return;}
+        break;
+      }
+    }
+  }
+  for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.life--;}
+  parts=parts.filter(p=>p.life>0);
+}
+function drawRock(r){
+  ctx.save();ctx.translate(r.x,r.y);ctx.rotate(r.rot);
+  ctx.beginPath();
+  r.pts.forEach((p,i)=>{const x=Math.cos(p.a)*r.r*p.d,y=Math.sin(p.a)*r.r*p.d;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.closePath();
+  ctx.strokeStyle=r.size===3?'#a855f7':r.size===2?'#22d3ee':'#facc15';
+  ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=8;ctx.lineWidth=2;ctx.stroke();
+  ctx.restore();
+}
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#0d0b1e55';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='#ffffff10';
+  for(let i=0;i<10;i++){ctx.beginPath();ctx.moveTo(0,i*52);ctx.lineTo(cv.width,i*52);ctx.moveTo(i*48,0);ctx.lineTo(i*48,cv.height);ctx.stroke();}
+  for(const p of parts){ctx.globalAlpha=p.life/30;ctx.fillStyle=p.c;ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}
+  ctx.globalAlpha=1;
+  for(const r of rocks)drawRock(r);
+  ctx.strokeStyle='#facc15';ctx.lineWidth=1.5;
+  for(const b of bullets){ctx.beginPath();ctx.arc(b.x,b.y,2.2,0,7);ctx.stroke();}
+  if(!dead){
+    ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(ship.a);
+    if(ship.inv%20<10){ctx.globalAlpha=0.45;}
+    ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-9,-9);ctx.lineTo(-5,0);ctx.lineTo(-9,9);ctx.closePath();
+    ctx.strokeStyle='#f472b6';ctx.shadowColor='#f472b6';ctx.shadowBlur=10;ctx.lineWidth=2;ctx.stroke();
+    if(keys.thrust&&frame%6<3){ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(-16,0);ctx.strokeStyle='#fb923c';ctx.stroke();}
+    ctx.restore();ctx.globalAlpha=1;
+  }
+  if(!started&&!dead){ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('按任意方向键 / 点击 开始',cv.width/2,cv.height/2+60);}
+  if(dead){ctx.fillStyle='#f472b6';ctx.font='22px system-ui';ctx.textAlign='center';ctx.fillText('碎成星尘… '+score+' 分',cv.width/2,cv.height/2);}
+}
+function loop(){update();draw();raf=requestAnimationFrame(loop);}
+addEventListener('keydown',e=>{
+  if(['ArrowLeft','a','A'].includes(e.key)){keys.left=true;start();}
+  if(['ArrowRight','d','D'].includes(e.key)){keys.right=true;start();}
+  if(['ArrowUp','w','W'].includes(e.key)){keys.thrust=true;start();}
+  if(e.key===' '){keys.fire=true;start();e.preventDefault();}
+});
+addEventListener('keyup',e=>{
+  if(['ArrowLeft','a','A'].includes(e.key))keys.left=false;
+  if(['ArrowRight','d','D'].includes(e.key))keys.right=false;
+  if(['ArrowUp','w','W'].includes(e.key))keys.thrust=false;
+  if(e.key===' ')keys.fire=false;
+});
+cv.addEventListener('pointerdown',()=>{if(!started)start();});
+const bind=(id,k)=>{const el=document.getElementById(id);
+  el.addEventListener('pointerdown',e=>{keys[k]=true;start();e.preventDefault();});
+  el.addEventListener('pointerup',()=>keys[k]=false);
+  el.addEventListener('pointerleave',()=>keys[k]=false);};
+bind('pL','left');bind('pR','right');bind('pT','thrust');bind('pF','fire');
+newGame();
+</script>
+</body>
+</html>

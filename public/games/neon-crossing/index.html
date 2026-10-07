@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>霓虹过河</title>
+<script src="/games/_bridge.js"></script>
+<script src="/games/_audio.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d0b1e;color:#e7e6f5;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:10px;padding:10px;}
+  h1{color:#a3e635;text-shadow:0 0 10px rgba(163,230,53,.6);font-size:22px;letter-spacing:2px;}
+  .hud{display:flex;gap:16px;font-size:14px;color:#94a3b8;}
+  .hud b{color:#facc15;font-size:17px;}
+  canvas{background:#120f28;border:1px solid rgba(163,230,53,.3);border-radius:10px;max-width:92vw;touch-action:none;}
+  p.tip{color:#64748b;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<h1>🐸 霓虹过河</h1>
+<div class="hud"><span>分数 <b id="score">0</b></span><span>轮次 <b id="round">1</b></span><span>生命 <b id="lives">3</b></span><span>最高 <b id="hi">0</b></span></div>
+<canvas id="cv" width="480" height="500"></canvas>
+<p class="tip">方向键 / WASD / 滑动 · 跳一步 +10 · 占一个荷叶巢 +200 · 躲车 · 站木头别掉水里 · 五个巢全占进入下一轮</p>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const COLS=13,ROWS=12,T=40; // 13 列 × 12 行，1 行 = 40px
+let frog,cars,logs,goals,parts,score,lives,round,dead,started,frame,raf,hopLock;
+let hi=+(localStorage.getItem('afrogger_hi')||0);
+document.getElementById('hi').textContent=hi;
+
+const LANES=[ // y 为行号；dir 方向；road=车 river=木
+  {row:9,kind:'road',dir:1,speed:1.6,gap:3.2,color:'#fb7185'},
+  {row:8,kind:'road',dir:-1,speed:2.1,gap:2.6,color:'#fb923c'},
+  {row:7,kind:'road',dir:1,speed:2.6,gap:3.6,color:'#facc15'},
+  {row:6,kind:'road',dir:-1,speed:1.9,gap:2.9,color:'#f472b6'},
+  {row:4,kind:'river',dir:-1,speed:1.3,gap:2.4,color:'#22d3ee'},
+  {row:3,kind:'river',dir:1,speed:1.7,gap:2.8,color:'#a855f7'},
+  {row:2,kind:'river',dir:-1,speed:2.2,gap:3.4,color:'#a3e635'},
+];
+function newGame(){
+  resetFrog();cars=[];logs=[];goals=[false,false,false,false,false];parts=[];
+  score=0;lives=3;round=1;dead=false;started=false;frame=0;hopLock=0;
+  buildLanes();hud();cancelAnimationFrame(raf);loop();
+  ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';
+  ctx.fillText('按方向键 / 点击 开始',cv.width/2,cv.height/2+30);
+}
+function resetFrog(){frog={px:6*T+T/2,row:11};}
+function buildLanes(){
+  cars=[];logs=[];
+  for(const ln of LANES){
+    const n=Math.max(2,Math.round(COLS/ln.gap));
+    const sp=(ln.speed+ (round-1)*0.35);
+    for(let i=0;i<n;i++){
+      const w=ln.kind==='road'?60:96;
+      const x=i*(cv.width/n)+Math.random()*30;
+      const item={x,y:ln.row*T,w,sp,dir:ln.dir,color:ln.color,kind:ln.kind,row:ln.row};
+      (ln.kind==='road'?cars:logs).push(item);
+    }
+  }
+}
+function hud(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent=lives;document.getElementById('round').textContent=round;}
+function start(){
+  if(started||dead)return;
+  started=true;ArcadeAudio.bgm('pulse');
+}
+function boom(x,y,color,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:22,c:color});}
+function loseLife(msg){
+  lives--;hud();ArcadeAudio.sfx('over');
+  if(frog.px!==undefined)boom(frog.px,frog.py,'#fb7185',16);
+  if(lives<=0){
+    dead=true;ArcadeAudio.bgm(null);
+    if(score>hi){hi=score;localStorage.setItem('afrogger_hi',hi);document.getElementById('hi').textContent=hi;}
+    ArcadeBridge.submitScore(score);
+    setTimeout(()=>{dead=false;newGame();},1600);
+  } else resetFrog();
+}
+function hop(dx,dy){
+  if(dead||hopLock>0)return;
+  start();
+  frog.px=Math.max(T/2,Math.min(cv.width-T/2,frog.px+dx*T));
+  frog.row=Math.max(1,Math.min(11,frog.row+dy));
+  hopLock=7;ArcadeAudio.sfx('hop');
+  if(dy>0){score+=10;hud();}
+}
+function update(){
+  frame++;
+  if(hopLock>0)hopLock--;
+  const spMul=1+(round-1)*0.3;
+  for(const c of cars){c.x+=c.sp*c.dir*spMul;if(c.dir>0&&c.x>cv.width+70)c.x=-70;if(c.dir<0&&c.x<-70)c.x=cv.width+70;}
+  for(const l of logs){l.x+=l.sp*l.dir*spMul;if(l.dir>0&&l.x>cv.width+60)l.x=-60;if(l.dir<0&&l.x<-60)l.x=cv.width+60;}
+  if(dead||!started)return;
+  const fx=frog.px,fy=frog.row*T+T/2;
+  frog.py=fy;
+  // 车道碰撞
+  if(frog.row>=6&&frog.row<=9){
+    for(const c of cars){
+      if(c.row===frog.row&&Math.abs(fx-(c.x+c.w/2))<c.w/2+12){loseLife();return;}
+    }
+  }
+  // 河道：必须站在木头上，并跟着木头漂
+  if(frog.row>=2&&frog.row<=4){
+    let on=null;
+    for(const l of logs){
+      if(l.row===frog.row&&fx>l.x-8&&fx<l.x+l.w+8){on=l;break;}
+    }
+    if(!on){loseLife();return;}
+    frog.px+=on.sp*on.dir*spMul;
+    if(frog.px<T/2||frog.px>cv.width-T/2){loseLife();return;} // 被漂出边界
+  }
+  // 到达顶部：row 1 是巢区
+  if(frog.row===1){
+    const slot=Math.floor(frog.px/T);
+    const idx=[1,3,5,7,9].findIndex(s=>Math.abs(s-slot)<=1);
+    if(idx>=0&&!goals[idx]){
+      goals[idx]=true;score+=200;hud();ArcadeAudio.sfx('level');
+      boom(idx*2.4*T+T,1.5*T,'#a3e635',14);
+      if(goals.every(Boolean)){
+        round++;hud();
+        for(let i=0;i<5;i++)goals[i]=false;
+        ArcadeAudio.sfx('level');
+      }
+      resetFrog();
+      return;
+    }
+    loseLife();return; // 撞在巢区边缘
+  }
+}
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // 区带底色
+  ctx.fillStyle='#1a1630';ctx.fillRect(0,0,cv.width,2*T);        // 巢区
+  ctx.fillStyle='#0e2a3d';ctx.fillRect(0,2*T,cv.width,3*T);      // 河
+  ctx.fillStyle='#241a30';ctx.fillRect(0,5*T,cv.width,T);        // 中线安全带
+  ctx.fillStyle='#241432';ctx.fillRect(0,6*T,cv.width,4*T);      // 公路
+  ctx.fillStyle='#1a1630';ctx.fillRect(0,10*T,cv.width,2*T);     // 出发区
+  // 虚线车道
+  ctx.strokeStyle='#ffffff12';
+  for(let r=7;r<=9;r++){ctx.beginPath();ctx.setLineDash([10,12]);ctx.moveTo(0,r*T);ctx.lineTo(cv.width,r*T);ctx.stroke();}
+  ctx.setLineDash([]);
+  // 巢位
+  [1,3,5,7,9].forEach((s,i)=>{
+    ctx.beginPath();ctx.arc(s*T+T/2,1.5*T,12,0,7);
+    ctx.strokeStyle=goals[i]?'#a3e635':'#3a3560';ctx.lineWidth=2;
+    if(goals[i]){ctx.fillStyle='#a3e63533';ctx.fill();}
+    ctx.stroke();
+  });
+  // 木头
+  for(const l of logs){
+    ctx.fillStyle=l.color+'26';ctx.strokeStyle=l.color;ctx.lineWidth=2;
+    roundRect(l.x,l.y+8,l.w,T-16,6);ctx.fill();ctx.stroke();
+  }
+  // 车
+  for(const c of cars){
+    ctx.fillStyle=c.color+'33';ctx.strokeStyle=c.color;ctx.lineWidth=2;
+    roundRect(c.x,c.y+6,c.w,T-12,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle=c.color;ctx.fillRect(c.x+c.w/2-4,c.y+T/2-2,8,4);
+  }
+  // 青蛙
+  if(!dead&&frog.px!==undefined){
+    ctx.fillStyle='#a3e635';ctx.strokeStyle='#e7e6f5';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(frog.px,frog.py,10,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#0d0b1e';
+    ctx.beginPath();ctx.arc(frog.px-4,frog.py-4,2.4,0,7);ctx.arc(frog.px+4,frog.py-4,2.4,0,7);ctx.fill();
+  }
+  for(const p of parts){ctx.globalAlpha=p.life/26;ctx.fillStyle=p.c;ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}
+  ctx.globalAlpha=1;
+  if(!started&&!dead){ctx.fillStyle='#94a3b8';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('按方向键 / 点击 开始',cv.width/2,cv.height/2+30);}
+  if(dead){ctx.fillStyle='#f472b6';ctx.font='22px system-ui';ctx.textAlign='center';ctx.fillText('被碾成了霓虹… '+score+' 分',cv.width/2,cv.height/2);}
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+function loop(){update();draw();raf=requestAnimationFrame(loop);}
+addEventListener('keydown',e=>{
+  const k=e.key;
+  if(['ArrowUp','w','W'].includes(k)){hop(0,1);e.preventDefault();}
+  else if(['ArrowDown','s','S'].includes(k)){hop(0,-1);e.preventDefault();}
+  else if(['ArrowLeft','a','A'].includes(k)){hop(-1,0);e.preventDefault();}
+  else if(['ArrowRight','d','D'].includes(k)){hop(1,0);e.preventDefault();}
+});
+let tS=null;
+cv.addEventListener('pointerdown',e=>{tS={x:e.clientX,y:e.clientY};if(!started)start();});
+cv.addEventListener('pointerup',e=>{
+  if(!tS)return;
+  const dx=e.clientX-tS.x,dy=e.clientY-tS.y;
+  if(Math.hypot(dx,dy)<12)return;
+  if(Math.abs(dx)>Math.abs(dy))hop(dx>0?1:-1,0);
+  else hop(0,dy<0?1:-1);
+  tS=null;
+});
+newGame();
+</script>
+</body>
+</html>

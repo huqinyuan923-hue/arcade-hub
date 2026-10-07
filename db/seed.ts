@@ -394,6 +394,26 @@ const GAMES: SeedGame[] = [
     plays: 170,
     sortOrder: 40,
   },
+  {
+    slug: "neon-asteroids",
+    title: "霓虹陨石",
+    description:
+      "驾驶霓虹战机在陨石带里穿行：←→ 旋转、↑ 推进、空格开火。大陨石裂成中陨石、中裂成小，越小的越快也越值钱（20/50/100 分）。撞上即损命，波次无限递增。",
+    category: "射击",
+    sourceType: "builtin",
+    plays: 140,
+    sortOrder: 41,
+  },
+  {
+    slug: "neon-crossing",
+    title: "霓虹过河",
+    description:
+      "青蛙过马路经典复刻：车流四条道、暗流三条河。跳一步 +10 分，占住对岸荷叶巢 +200，五个巢全占进入更快的下一轮。公路看车距、河面靠木头，被漂出边界也算落水。",
+    category: "经典",
+    sourceType: "builtin",
+    plays: 130,
+    sortOrder: 42,
+  },
 ];
 
 const DEMO_USERS = [

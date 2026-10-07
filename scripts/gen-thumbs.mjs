@@ -22,6 +22,8 @@ const GAMES = [
   { slug: "cozy-sort", emoji: "🧺", title: "Cozy Sort", c1: "#f472b6", c2: "#a3e635" },
   { slug: "boom-cell", emoji: "🧫", title: "Boom Cell", c1: "#a855f7", c2: "#22d3ee" },
   { slug: "mine-keeper", emoji: "⛏️", title: "Mine Keeper", c1: "#fb923c", c2: "#22d3ee" },
+  { slug: "neon-asteroids", emoji: "☄️", title: "霓虹陨石", c1: "#22d3ee", c2: "#a855f7" },
+  { slug: "neon-crossing", emoji: "🐸", title: "霓虹过河", c1: "#a3e635", c2: "#22d3ee" },
   { slug: "default", emoji: "🕹️", title: "Arcade Hub", c1: "#22d3ee", c2: "#f472b6" },
 ];
 
