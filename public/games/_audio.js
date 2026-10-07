@@ -194,9 +194,12 @@
   var wrap = null, btn = null, slider = null;
   function mountBtn() {
     if (wrap) return;
+    // 窄屏(手机)挂右下角,避免遮挡居中的游戏标题;桌面保持右上角
+    var narrow = window.innerWidth < 640;
     wrap = document.createElement("div");
     wrap.style.cssText =
-      "position:fixed;top:10px;right:10px;z-index:99999;display:flex;align-items:center;gap:6px;" +
+      (narrow ? "position:fixed;bottom:10px;right:10px;" : "position:fixed;top:10px;right:10px;") +
+      "z-index:99999;display:flex;align-items:center;gap:6px;" +
       "background:rgba(13,11,30,.85);border:1px solid rgba(34,211,238,.5);border-radius:999px;" +
       "padding:5px 10px;box-shadow:0 0 10px rgba(34,211,238,.25);";
     slider = document.createElement("input");
@@ -206,7 +209,7 @@
     slider.value = String(Math.round(volume * 100));
     slider.title = "调节音量";
     slider.setAttribute("aria-label", "音量");
-    slider.style.cssText = "width:74px;height:14px;accent-color:#22d3ee;cursor:pointer;margin:0;";
+    slider.style.cssText = "width:" + (narrow ? "52px" : "74px") + ";height:14px;accent-color:#22d3ee;cursor:pointer;margin:0;";
     slider.addEventListener("input", function () { setVolume(Number(slider.value) / 100); });
     // 拖动滑块时别让游戏收到键盘/触摸
     slider.addEventListener("pointerdown", function (e) { e.stopPropagation(); });

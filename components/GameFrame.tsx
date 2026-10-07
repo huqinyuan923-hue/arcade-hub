@@ -218,7 +218,7 @@ export default function GameFrame({
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-t border-white/10 text-sm">
         <div className="text-slate-400">
           {best !== null ? (
             <span>
