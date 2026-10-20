@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { hashPassword, verifyPassword } from "./password";
+import { getSessionSecret, SESSION_COOKIE } from "./session-secret";
 
 export { hashPassword, verifyPassword };
-
-export const SESSION_COOKIE = "arcade_session";
+export { SESSION_COOKIE };
 const SESSION_DAYS = 7;
 
 export type SessionUser = {
@@ -13,15 +13,6 @@ export type SessionUser = {
   email: string;
   role: "user" | "admin";
 };
-
-function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    // 本地开发兜底；生产环境必须通过环境变量配置
-    return new TextEncoder().encode("arcade-hub-dev-secret-fallback-0000");
-  }
-  return new TextEncoder().encode(secret);
-}
 
 export async function signSession(user: SessionUser): Promise<string> {
   return new SignJWT({
@@ -33,7 +24,7 @@ export async function signSession(user: SessionUser): Promise<string> {
     .setSubject(String(user.id))
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
-    .sign(getSecret());
+    .sign(getSessionSecret());
 }
 
 export async function setSessionCookie(token: string): Promise<void> {
@@ -57,7 +48,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSessionSecret());
     if (!payload.sub) return null;
     return {
       id: Number(payload.sub),

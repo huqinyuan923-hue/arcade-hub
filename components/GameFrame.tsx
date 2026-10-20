@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 type ToastKind = "info" | "success" | "warn";
 type Toast = { text: string; kind: ToastKind } | null;
@@ -45,7 +44,6 @@ export default function GameFrame({
   const [toast, setToast] = useState<Toast>(null);
   const [best, setBest] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   function showToast(text: string, kind: ToastKind = "info") {
     setToast({ text, kind });
@@ -110,6 +108,11 @@ export default function GameFrame({
   // 接收站内游戏上报的成绩
   useEffect(() => {
     async function onMessage(e: MessageEvent) {
+      // 只接受同源、且确实来自当前这个 iframe 的消息：
+      // 第三方嵌入游戏或页面上任何脚本都不能伪造成绩。
+      if (e.origin !== window.location.origin) return;
+      const frame = frameRef.current;
+      if (!frame || e.source !== frame.contentWindow) return;
       const data = e.data;
       if (!data || data.type !== "arcade:score" || typeof data.score !== "number") return;
       // 防抖：3 秒内相同成绩视为重复上报（部分游戏会多次触发 submit）
@@ -127,21 +130,25 @@ export default function GameFrame({
           return;
         }
         const d = await res.json();
-        if (!res.ok) return;
+        if (!res.ok) {
+          showToast(typeof d.error === "string" ? d.error : "成绩提交失败", "warn");
+          return;
+        }
         if (d.isNewBest) {
           setBest(d.score ?? data.score);
           showToast(`🎉 新纪录 ${data.score}！当前第 ${d.rank} 名`, "success");
         } else {
           showToast(`成绩 ${data.score}（最高 ${d.previousBest}）`, "info");
         }
-        router.refresh();
+        // 不在此处 router.refresh()：RSC 重取会重挂 iframe，正在玩的一局被清空。
+        // 本次最高分已由 setBest 就地更新，排行榜在下次导航时自然刷新。
       } catch {
         /* 忽略网络抖动 */
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [slug, router]);
+  }, [slug]);
 
   function goFullscreen() {
     const el = wrapRef.current;

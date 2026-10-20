@@ -446,22 +446,25 @@ async function main() {
 
   // 管理员
   const adminEmail = process.env.ADMIN_EMAIL ?? "admin@arcadehub.local";
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "Arcade@2026";
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "";
+  if (!adminPassword) {
+    throw new Error("请先设置 ADMIN_PASSWORD 再运行种子（脚本不再内置默认管理员口令）");
+  }
   const adminExisting = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
   if (adminExisting.length) {
     await db
       .update(users)
-      .set({ role: "admin", passwordHash: hashPassword(adminPassword) })
+      .set({ role: "admin", passwordHash: await hashPassword(adminPassword) })
       .where(eq(users.email, adminEmail));
     console.log(`管理员已存在，已重置密码：${adminEmail}`);
   } else {
     await db.insert(users).values({
       email: adminEmail,
       username: "admin",
-      passwordHash: hashPassword(adminPassword),
+      passwordHash: await hashPassword(adminPassword),
       role: "admin",
     });
-    console.log(`管理员已创建：${adminEmail} / ${adminPassword}`);
+    console.log(`管理员已创建：${adminEmail}（密码见 ADMIN_PASSWORD，此处不回显）`);
   }
 
   // 游戏入库（按 slug 幂等）
@@ -500,10 +503,10 @@ async function main() {
     } else {
       const inserted = await db
         .insert(users)
-        .values({ email: u.email, username: u.username, passwordHash: hashPassword(u.plain) })
+        .values({ email: u.email, username: u.username, passwordHash: await hashPassword(u.plain) })
         .returning();
       demoRows.push(inserted[0]);
-      console.log(`演示用户已创建：${u.username}（密码 ${u.plain}）`);
+      console.log(`演示用户已创建：${u.username}`);
     }
   }
 

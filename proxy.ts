@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { getSessionSecret, SESSION_COOKIE } from "@/lib/session-secret";
 
-const SESSION_COOKIE = "arcade_session";
-
-function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    return new TextEncoder().encode("arcade-hub-dev-secret-fallback-0000");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   let isAdmin = false;
   if (token) {
     try {
-      const { payload } = await jwtVerify(token, getSecret());
+      const { payload } = await jwtVerify(token, getSessionSecret());
       isAdmin = payload.role === "admin";
     } catch {
       isAdmin = false;

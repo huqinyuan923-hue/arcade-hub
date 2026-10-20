@@ -3,8 +3,19 @@ import { eq, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { hashPassword, setSessionCookie, signSession } from "@/lib/auth";
+import { allow, clientKey, retryAfter } from "@/lib/rate-limit";
+
+const WINDOW_MS = 10 * 60_000;
+const LIMIT = 10;
 
 export async function POST(req: NextRequest) {
+  const key = clientKey(req, "register", "all");
+  if (!allow(key, LIMIT, WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "注册过于频繁，请稍后再试" },
+      { status: 429, headers: { "Retry-After": String(retryAfter(key, WINDOW_MS)) } }
+    );
+  }
   let body: { email?: string; username?: string; password?: string };
   try {
     body = await req.json();
@@ -39,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const inserted = await db
     .insert(users)
-    .values({ email, username, passwordHash: hashPassword(password) })
+    .values({ email, username, passwordHash: await hashPassword(password) })
     .returning({ id: users.id, username: users.username, email: users.email, role: users.role });
 
   const user = {

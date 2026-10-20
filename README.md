@@ -50,7 +50,7 @@ pnpm dev                     # http://localhost:3000
 
 | 角色 | 账号 | 密码 | 来源 |
 | --- | --- | --- | --- |
-| 管理员 | `admin@arcadehub.local` | 部署时通过 `ADMIN_EMAIL` / `ADMIN_PASSWORD` 环境变量设置（默认 `Arcade@2026`） | `pnpm db:seed` |
+| 管理员 | `admin@arcadehub.local` | 部署时通过 `ADMIN_EMAIL` / `ADMIN_PASSWORD` 环境变量设置（`ADMIN_PASSWORD` 必填，脚本不再内置默认口令） | `pnpm db:seed` |
 | 演示玩家 | `player1@demo.local` 等 3 个 | `demo123456` | `pnpm db:seed` |
 
 > 上线后请立即修改管理员密码（后台或数据库），并删除演示用户。

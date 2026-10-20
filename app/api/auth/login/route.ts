@@ -3,6 +3,10 @@ import { eq, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { setSessionCookie, signSession, verifyPassword } from "@/lib/auth";
+import { allow, clientKey, retryAfter } from "@/lib/rate-limit";
+
+const WINDOW_MS = 5 * 60_000;
+const LIMIT = 10;
 
 export async function POST(req: NextRequest) {
   let body: { account?: string; password?: string };
@@ -18,6 +22,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "请输入账号和密码" }, { status: 400 });
   }
 
+  const key = clientKey(req, "login", account.toLowerCase());
+  if (!allow(key, LIMIT, WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "尝试次数过多，请稍后再试" },
+      { status: 429, headers: { "Retry-After": String(retryAfter(key, WINDOW_MS)) } }
+    );
+  }
+
   const db = getDb();
   const rows = await db
     .select()
@@ -26,7 +38,7 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   const found = rows[0];
-  if (!found || !verifyPassword(password, found.passwordHash)) {
+  if (!found || !(await verifyPassword(password, found.passwordHash))) {
     return NextResponse.json({ error: "账号或密码错误" }, { status: 401 });
   }
 
