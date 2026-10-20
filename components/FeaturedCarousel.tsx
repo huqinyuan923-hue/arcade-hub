@@ -1,21 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { GameWithRating } from "@/lib/games";
+
+const REDUCE_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReduceMotion(onChange: () => void) {
+  const mq = window.matchMedia(REDUCE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function getReduceMotion(): boolean {
+  return window.matchMedia(REDUCE_QUERY).matches;
+}
+
+function getReduceMotionOnServer(): boolean {
+  return false;
+}
 
 export default function FeaturedCarousel({ games }: { games: GameWithRating[] }) {
   const [idx, setIdx] = useState(0);
   const [hover, setHover] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const reducedMotion = useSyncExternalStore(
+    subscribeReduceMotion,
+    getReduceMotion,
+    getReduceMotionOnServer
+  );
 
   useEffect(() => {
     if (games.length < 2 || hover || reducedMotion) return;

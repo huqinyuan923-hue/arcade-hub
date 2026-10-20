@@ -15,7 +15,7 @@
     muted = localStorage.getItem(MUTED_KEY) === "1";
     var sv = parseFloat(localStorage.getItem(VOL_KEY));
     if (!isNaN(sv)) volume = Math.min(1, Math.max(0, sv));
-  } catch (e) {}
+  } catch {}
 
   var ctx = null, master = null, sfxGain = null, bgmGain = null, noiseBuf = null;
   var pendingTrack = null, currentTrack = null, bgmTimer = null, step = 0;
@@ -168,7 +168,7 @@
 
   function setMuted(v) {
     muted = v;
-    try { localStorage.setItem(MUTED_KEY, v ? "1" : "0"); } catch (e) {}
+    try { localStorage.setItem(MUTED_KEY, v ? "1" : "0"); } catch {}
     if (v) {
       stopBgm();
     } else if (pendingTrack) {
@@ -179,12 +179,12 @@
 
   function setVolume(v) {
     volume = Math.min(1, Math.max(0, v));
-    try { localStorage.setItem(VOL_KEY, String(volume)); } catch (e) {}
+    try { localStorage.setItem(VOL_KEY, String(volume)); } catch {}
     if (ctx) master.gain.value = volume;
     // 拖动滑块表达的是"想要声音"，静音状态下拖动即取消静音
     if (volume > 0 && muted) {
       muted = false;
-      try { localStorage.setItem(MUTED_KEY, "0"); } catch (e) {}
+      try { localStorage.setItem(MUTED_KEY, "0"); } catch {}
       if (pendingTrack && ensure() && !currentTrack) startBgm(pendingTrack);
     }
     updateUI();

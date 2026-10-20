@@ -50,6 +50,13 @@ const EMPTY_FORM = {
 
 const CATEGORIES = ["益智", "动作", "经典", "街机", "休闲", "对战"];
 
+async function fetchJson(url: string): Promise<Record<string, unknown>> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (res.status === 401) throw new Error("登录状态已失效，请重新登录");
+  if (!res.ok) throw new Error(`${res.status}（${url}）`);
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<"stats" | "games" | "users">("stats");
   const [stats, setStats] = useState<Stats | null>(null);
@@ -60,23 +67,30 @@ export default function AdminPage() {
   const [msg, setMsg] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  const flash = (text: string) => {
+  const flash = useCallback((text: string) => {
     setMsg(text);
     window.setTimeout(() => setMsg(""), 3000);
-  };
-
-  const loadAll = useCallback(async () => {
-    const [s, g, u] = await Promise.all([
-      fetch("/api/admin/stats").then((r) => r.json()),
-      fetch("/api/admin/games").then((r) => r.json()),
-      fetch("/api/admin/users").then((r) => r.json()),
-    ]);
-    setStats(s.totals ? s : null);
-    setGames(g.games ?? []);
-    setUsers(u.users ?? []);
   }, []);
 
+  const loadAll = useCallback(async () => {
+    try {
+      const [s, g, u] = await Promise.all([
+        fetchJson("/api/admin/stats"),
+        fetchJson("/api/admin/games"),
+        fetchJson("/api/admin/users"),
+      ]);
+      setStats("totals" in s ? (s as unknown as Stats) : null);
+      setGames(Array.isArray(g.games) ? (g.games as AdminGame[]) : []);
+      setUsers(Array.isArray(u.users) ? (u.users as AdminUser[]) : []);
+    } catch (err) {
+      flash(err instanceof Error ? `加载失败：${err.message}` : "加载失败，请刷新或重新登录");
+    }
+  }, [flash]);
+
   useEffect(() => {
+    // 后台数据只能在客户端拉取：setState 发生在 fetch 的 await 之后，
+    // 并非规则所针对的「同步级联渲染」。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAll();
   }, [loadAll]);
 

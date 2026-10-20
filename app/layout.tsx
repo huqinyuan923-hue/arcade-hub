@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -29,7 +29,6 @@ export const metadata: Metadata = {
   description:
     "Arcade Hub 是一个在线街机游戏门户：2048、贪吃蛇、俄罗斯方块等经典小游戏即点即玩，支持用户收藏、评分与全站排行榜。",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  themeColor: "#0d0b1e",
   openGraph: {
     type: "website",
     siteName: "Arcade Hub",
@@ -37,6 +36,10 @@ export const metadata: Metadata = {
     description: "2048、贪吃蛇、俄罗斯方块等 40 款经典小游戏即点即玩，冲击排行榜。",
     images: [{ url: "/icon.svg", width: 64, height: 64, alt: "Arcade Hub" }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d0b1e",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
