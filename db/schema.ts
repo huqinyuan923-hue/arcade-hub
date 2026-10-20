@@ -84,7 +84,11 @@ export const scores = pgTable(
     score: integer("score").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("scores_game_score_idx").on(t.gameId, t.score)]
+  (t) => [
+    index("scores_game_score_idx").on(t.gameId, t.score),
+    // 个人最高分与排名聚合都按 (game_id, user_id) 过滤，缺这个索引会全表扫
+    index("scores_game_user_idx").on(t.gameId, t.userId),
+  ]
 );
 
 export const playEvents = pgTable(

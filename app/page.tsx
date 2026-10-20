@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, sum } from "drizzle-orm";
+import { and, desc, eq, sql, sum } from "drizzle-orm";
 import GameCard, { formatPlays } from "@/components/GameCard";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import { getDb } from "@/db";
@@ -9,9 +9,19 @@ import { getCategories, getFeaturedGames, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
+// 放在组件外：渲染期间直接调用 Date.now() 会被 React 判定为不纯
+function today() {
+  const now = new Date();
+  return {
+    index: Math.floor(now.getTime() / 86400000),
+    label: now.toLocaleDateString("zh-CN", { month: "long", day: "numeric" }),
+  };
+}
+
 export default async function HomePage() {
   const db = getDb();
   const user = await getSessionUser();
+  const day = today();
   const [featured, newest, hottest, categories, totals, recent, gameCount] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
@@ -21,31 +31,35 @@ export default async function HomePage() {
     db
       .select({ total: sum(games.plays).mapWith(Number) })
       .from(games),
-    // 登录用户的最近游玩（"继续玩"）
+    // 登录用户的最近游玩（"继续玩"）：多取一些再在前端按游戏去重，凑够 6 款
     user
       ? db
           .select({ slug: games.slug, title: games.title })
           .from(playEvents)
           .innerJoin(games, eq(games.id, playEvents.gameId))
-          .where(eq(playEvents.userId, user.id))
+          .where(and(eq(playEvents.userId, user.id), eq(games.status, "published")))
           .orderBy(desc(playEvents.createdAt))
-          .limit(6)
+          .limit(24)
       : Promise.resolve([]),
-    db.select({ n: games.id }).from(games),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(games)
+      .where(eq(games.status, "published")),
   ]);
   const totalPlays = totals[0]?.total ?? 0;
-  const totalGames = gameCount.length;
+  const totalGames = gameCount[0]?.n ?? 0;
   // 去重（同一游戏只保留最近一条）
   const seen = new Set<string>();
-  const continueGames = (recent as { slug: string; title: string }[]).filter((g) => {
-    if (seen.has(g.slug)) return false;
-    seen.add(g.slug);
-    return true;
-  });
+  const continueGames = (recent as { slug: string; title: string }[])
+    .filter((g) => {
+      if (seen.has(g.slug)) return false;
+      seen.add(g.slug);
+      return true;
+    })
+    .slice(0, 6);
   // 今日推荐：按日期确定性轮换，每天一款
   const dailyPool = [...featured, ...hottest, ...newest];
-  const dayIndex = Math.floor(Date.now() / 86400000);
-  const dailyPick = dailyPool.length ? dailyPool[dayIndex % dailyPool.length] : null;
+  const dailyPick = dailyPool.length ? dailyPool[day.index % dailyPool.length] : null;
 
   return (
     <div className="flex flex-col gap-10">
@@ -95,7 +109,7 @@ export default async function HomePage() {
               className="w-16 h-12 rounded-lg object-cover shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-xs text-slate-500">📅 今日推荐 · {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}</p>
+              <p className="text-xs text-slate-500">📅 今日推荐 · {day.label}</p>
               <p className="font-bold text-slate-100 truncate">{dailyPick.title}</p>
             </div>
           </div>

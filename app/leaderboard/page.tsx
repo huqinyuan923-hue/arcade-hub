@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { games, scores, users } from "@/db/schema";
+import { getTopScores } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
@@ -39,16 +40,21 @@ async function getPlayerBoard() {
 async function getGameBoard() {
   const db = getDb();
   // 每个游戏的最高分保持者（DISTINCT ON 推到 SQL）
-  const holders = await db
-    .selectDistinctOn([scores.gameId], { gameId: scores.gameId, score: scores.score, holder: users.username })
-    .from(scores)
-    .innerJoin(users, eq(users.id, scores.userId))
-    .orderBy(scores.gameId, desc(scores.score));
-
-  const allGames = await db
-    .select({ id: games.id, slug: games.slug, title: games.title, plays: games.plays })
-    .from(games)
-    .where(eq(games.hasScore, true));
+  const [holders, allGames] = await Promise.all([
+    db
+      .selectDistinctOn([scores.gameId], {
+        gameId: scores.gameId,
+        score: scores.score,
+        holder: users.username,
+      })
+      .from(scores)
+      .innerJoin(users, eq(users.id, scores.userId))
+      .orderBy(scores.gameId, desc(scores.score)),
+    db
+      .select({ id: games.id, slug: games.slug, title: games.title, plays: games.plays })
+      .from(games)
+      .where(and(eq(games.hasScore, true), eq(games.status, "published"))),
+  ]);
 
   const holderMap = new Map(holders.map((r) => [r.gameId, r]));
   return allGames
@@ -60,18 +66,6 @@ async function getGameBoard() {
     .sort((a, b) => (b.best ?? -1) - (a.best ?? -1));
 }
 
-// 指定游戏的 Top10 成绩
-async function getGameTopScores(gameId: number) {
-  const db = getDb();
-  return db
-    .select({ username: users.username, score: scores.score })
-    .from(scores)
-    .innerJoin(users, eq(users.id, scores.userId))
-    .where(eq(scores.gameId, gameId))
-    .orderBy(desc(scores.score))
-    .limit(10);
-}
-
 export default async function LeaderboardPage({
   searchParams,
 }: {
@@ -80,7 +74,7 @@ export default async function LeaderboardPage({
   const { game: gameSlug } = await searchParams;
   const [players, gameBoard] = await Promise.all([getPlayerBoard(), getGameBoard()]);
   const selected = gameSlug ? gameBoard.find((g) => g.slug === gameSlug) : undefined;
-  const topScores = selected ? await getGameTopScores(selected.id) : [];
+  const topScores = selected ? await getTopScores(selected.id, 10) : [];
 
   return (
     <div className="flex flex-col gap-8 py-2">
@@ -164,12 +158,12 @@ export default async function LeaderboardPage({
               {topScores.length ? (
                 <ol className="flex flex-col gap-1.5 text-sm">
                   {topScores.map((s, i) => (
-                    <li key={i} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
+                    <li key={`${s.username}-${i}`} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
                       <span className={`w-6 text-center font-bold ${i < 3 ? "text-neon-yellow" : "text-slate-500"}`}>
                         {["🥇", "🥈", "🥉"][i] ?? i + 1}
                       </span>
                       <span className="flex-1 truncate">{s.username}</span>
-                      <span className="font-mono font-semibold text-neon-cyan">{s.score}</span>
+                      <span className="font-mono font-semibold text-neon-cyan">{s.best}</span>
                     </li>
                   ))}
                 </ol>
