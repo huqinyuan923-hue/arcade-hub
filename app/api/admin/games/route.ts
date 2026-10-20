@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
-import { listGames, slugify } from "@/lib/games";
+import { listGames, MAX_SCORE, parseMaxScore, slugify } from "@/lib/games";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
+  const maxScore = parseMaxScore(body.maxScore);
+  if (!maxScore.ok) {
+    return NextResponse.json({ error: `单局上限需要 1–${MAX_SCORE} 之间的整数，或留空` }, { status: 400 });
+  }
   let slug = String(body.slug ?? "").trim() || slugify(title);
   const exists = await db.select({ id: games.id }).from(games).where(eq(games.slug, slug)).limit(1);
   if (exists.length) slug = `${slug}-${Date.now().toString(36)}`;
@@ -49,6 +53,7 @@ export async function POST(req: NextRequest) {
       embedUrl,
       playPath: sourceType === "builtin" ? `/games/${slug}/index.html` : null,
       hasScore: body.hasScore !== false,
+      maxScore: maxScore.value,
       featured: body.featured === true,
       status: body.status === "hidden" ? "hidden" : "published",
       sortOrder: Number(body.sortOrder) || 0,

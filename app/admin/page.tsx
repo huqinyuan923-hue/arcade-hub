@@ -21,6 +21,7 @@ type AdminGame = {
   embedUrl: string | null;
   plays: number;
   hasScore: boolean;
+  maxScore: number | null;
   featured: boolean;
   status: "published" | "hidden";
   avgRating: number;
@@ -45,6 +46,7 @@ const EMPTY_FORM = {
   thumbnail: "",
   featured: false,
   hasScore: true,
+  maxScore: "",
   status: "published" as "published" | "hidden",
 };
 
@@ -122,6 +124,7 @@ export default function AdminPage() {
       thumbnail: form.thumbnail,
       featured: form.featured,
       hasScore: form.hasScore,
+      maxScore: form.maxScore,
       status: form.status,
     };
     if (form.sourceType === "iframe") p.embedUrl = form.embedUrl;
@@ -139,6 +142,7 @@ export default function AdminPage() {
       thumbnail: g.thumbnail,
       featured: g.featured,
       hasScore: g.hasScore,
+      maxScore: g.maxScore === null ? "" : String(g.maxScore),
       status: g.status,
     });
     setShowForm(true);
@@ -389,6 +393,23 @@ export default function AdminPage() {
                   上架
                 </label>
               </div>
+              {form.hasScore && (
+                <div>
+                  <label className="block text-sm mb-1.5 text-white/70">
+                    单局上限（留空 = 不限制；超过上限的成绩直接拒收）
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10_000_000}
+                    step={1}
+                    value={form.maxScore}
+                    onChange={(e) => setForm({ ...form, maxScore: e.target.value })}
+                    placeholder="例如 999999"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-sm outline-none focus:border-neon-cyan"
+                  />
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <button type="submit" className="btn-neon px-6 py-2.5 rounded-xl font-semibold text-sm">
                   {editingId ? "保存修改" : "确认上架"}

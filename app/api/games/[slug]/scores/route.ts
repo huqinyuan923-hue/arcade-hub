@@ -3,7 +3,7 @@ import { and, eq, lt, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { games, scores } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
-import { getTopScores } from "@/lib/games";
+import { getTopScores, MAX_SCORE } from "@/lib/games";
 import { allow, clientKey, retryAfter } from "@/lib/rate-limit";
 
 const SUBMIT_WINDOW_MS = 60_000;
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     return NextResponse.json({ error: "请求格式错误" }, { status: 400 });
   }
   const score = Math.round(Number(body.score));
-  if (!Number.isFinite(score) || score < 0 || score > 10_000_000) {
+  if (!Number.isFinite(score) || score < 0 || score > MAX_SCORE) {
     return NextResponse.json({ error: "无效的成绩" }, { status: 400 });
   }
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
 
   const db = getDb();
   const found = await db
-    .select({ id: games.id, hasScore: games.hasScore })
+    .select({ id: games.id, hasScore: games.hasScore, maxScore: games.maxScore })
     .from(games)
     .where(eq(games.slug, slug))
     .limit(1);
@@ -56,6 +56,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
   }
   if (!found[0].hasScore) {
     return NextResponse.json({ error: "该游戏不支持排行榜" }, { status: 400 });
+  }
+  // 单局上限由管理员按游戏设置，超出的直接拒——排行榜不需要「理论上可能」的分数。
+  if (found[0].maxScore !== null && score > found[0].maxScore) {
+    return NextResponse.json(
+      { error: `成绩超出该游戏的单局上限（${found[0].maxScore}）` },
+      { status: 400 }
+    );
   }
   const gameId = found[0].id;
   const owner = and(eq(scores.userId, user.id), eq(scores.gameId, gameId));

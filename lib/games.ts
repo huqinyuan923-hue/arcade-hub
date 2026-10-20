@@ -9,6 +9,17 @@ export type GameWithRating = Game & {
   ratingCount: number;
 };
 
+/** 提交成绩的绝对兜底上限；games.max_score 在它之内再按游戏收一层。 */
+export const MAX_SCORE = 10_000_000;
+
+/** 解析管理员填写的单局上限：留空表示不限制。 */
+export function parseMaxScore(value: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (value === undefined || value === null || value === "") return { ok: true, value: null };
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 1 || n > MAX_SCORE) return { ok: false };
+  return { ok: true, value: n };
+}
+
 const ratingAgg = {
   avgRating: sql<number>`coalesce(round(avg(${ratings.value})::numeric, 1), 0)`.mapWith(Number),
   ratingCount: sql<number>`count(${ratings.id})`.mapWith(Number),

@@ -32,6 +32,8 @@ export const games = pgTable(
     playPath: text("play_path"), // 站内游戏路径，如 /games/2048/index.html
     plays: integer("plays").notNull().default(0),
     hasScore: boolean("has_score").notNull().default(true),
+    // 单局分数上限：null 表示只受全局兜底上限约束。防的是直接打接口刷分，不是玩法本身。
+    maxScore: integer("max_score"),
     featured: boolean("featured").notNull().default(false),
     status: text("status").notNull().default("published"), // 'published' | 'hidden'
     sortOrder: integer("sort_order").notNull().default(0),

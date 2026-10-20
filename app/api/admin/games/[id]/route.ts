@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { MAX_SCORE, parseMaxScore } from "@/lib/games";
 
 type Patch = Partial<{
   title: string;
@@ -11,6 +12,7 @@ type Patch = Partial<{
   thumbnail: string;
   embedUrl: string | null;
   hasScore: boolean;
+  maxScore: number | null;
   featured: boolean;
   status: "published" | "hidden";
   sortOrder: number;
@@ -43,6 +45,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (typeof body.featured === "boolean") patch.featured = body.featured;
   if (body.status === "published" || body.status === "hidden") patch.status = body.status;
   if (Number.isFinite(Number(body.sortOrder))) patch.sortOrder = Number(body.sortOrder);
+  if ("maxScore" in body) {
+    const parsed = parseMaxScore(body.maxScore);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: `单局上限需要 1–${MAX_SCORE} 之间的整数，或留空` }, { status: 400 });
+    }
+    patch.maxScore = parsed.value;
+  }
 
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "没有需要更新的字段" }, { status: 400 });
