@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
         source: "/thumbs/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
       },
+      // 共享脚本内容稳定，允许浏览器复用；放在 /games/:path* 之后以覆盖 must-revalidate
+      {
+        source: "/games/_audio.js",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=604800" }],
+      },
+      {
+        source: "/games/_bridge.js",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=604800" }],
+      },
     ];
   },
 };

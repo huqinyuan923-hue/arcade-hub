@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, sql, sum } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import GameCard, { formatPlays } from "@/components/GameCard";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import { getDb } from "@/db";
@@ -13,15 +13,16 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const db = getDb();
   const user = await getSessionUser();
-  const [featured, newest, hottest, categories, totals, recent, gameCount, challenge] = await Promise.all([
+  const [featured, newest, hottest, categories, siteTotals, recent, challenge] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
     listGames({ sort: "hot", limit: 8 }),
     getCategories(),
-    // 站点累计游玩数：全表 SUM，而不是只算最热 8 款
-    db
-      .select({ total: sum(games.plays).mapWith(Number) })
-      .from(games),
+    // 站点累计游玩数（全表 SUM，而不是只算最热 8 款）与已上架数量合成一次扫描
+    db.select({
+      totalPlays: sql<number>`coalesce(sum(${games.plays}), 0)`.mapWith(Number),
+      totalGames: sql<number>`count(*) filter (where ${games.status} = 'published')`.mapWith(Number),
+    }).from(games),
     // 登录用户的最近游玩（"继续玩"）：多取一些再在前端按游戏去重，凑够 6 款
     user
       ? db
@@ -32,15 +33,11 @@ export default async function HomePage() {
           .orderBy(desc(playEvents.createdAt))
           .limit(24)
       : Promise.resolve([]),
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(games)
-      .where(eq(games.status, "published")),
     getDailyChallenge(),
   ]);
   const challengeStatus = user && challenge ? await getChallengeStatus(user.id, challenge) : null;
-  const totalPlays = totals[0]?.total ?? 0;
-  const totalGames = gameCount[0]?.n ?? 0;
+  const totalPlays = siteTotals[0]?.totalPlays ?? 0;
+  const totalGames = siteTotals[0]?.totalGames ?? 0;
   // 去重（同一游戏只保留最近一条）
   const seen = new Set<string>();
   const continueGames = (recent as { slug: string; title: string }[])

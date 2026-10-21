@@ -52,14 +52,14 @@ export default async function GameDetailPage({
   if (!game || game.status !== "published") notFound();
 
   const user = await getSessionUser();
-  const [topScores, favCount, related, favorited, personalBest] = await Promise.all([
+  const [topScores, favCount, related, favorited, personalBest, challenge] = await Promise.all([
     game.hasScore ? getTopScores(game.id, 10) : Promise.resolve([]),
     getFavoriteCount(game.id),
     getRelatedGames(game, 6),
     user ? isFavorited(user.id, game.id) : Promise.resolve(false),
     user && game.hasScore ? getPersonalBest(game.id, user.id) : Promise.resolve(null),
+    getDailyChallenge(),
   ]);
-  const challenge = await getDailyChallenge();
   const isChallenge = Boolean(challenge && challenge.game.id === game.id);
   const challengeStatus =
     challenge && user && challenge.game.id === game.id
@@ -73,7 +73,7 @@ export default async function GameDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <nav className="text-sm text-slate-400 flex items-center gap-2">
+      <nav aria-label="面包屑" className="text-sm text-slate-400 flex items-center gap-2">
         <Link href="/games" className="hover:text-neon-cyan">
           游戏大厅
         </Link>

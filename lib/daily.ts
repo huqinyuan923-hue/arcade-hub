@@ -91,18 +91,25 @@ export async function getChallengeStatus(
   challenge: DailyChallenge
 ): Promise<ChallengeStatus> {
   const db = getDb();
-  const [todayRow] = await db
-    .select({ bestScore: dailyCompletions.bestScore })
-    .from(dailyCompletions)
-    .where(and(eq(dailyCompletions.userId, userId), eq(dailyCompletions.day, challenge.day)))
-    .limit(1);
-
-  const rows = await db
-    .select({ day: dailyCompletions.day })
-    .from(dailyCompletions)
-    .where(eq(dailyCompletions.userId, userId))
-    .orderBy(desc(dailyCompletions.day))
-    .limit(400);
+  const [todayRows, rows, totalRows] = await Promise.all([
+    db
+      .select({ bestScore: dailyCompletions.bestScore })
+      .from(dailyCompletions)
+      .where(and(eq(dailyCompletions.userId, userId), eq(dailyCompletions.day, challenge.day)))
+      .limit(1),
+    db
+      .select({ day: dailyCompletions.day })
+      .from(dailyCompletions)
+      .where(eq(dailyCompletions.userId, userId))
+      .orderBy(desc(dailyCompletions.day))
+      .limit(400),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(dailyCompletions)
+      .where(eq(dailyCompletions.userId, userId)),
+  ]);
+  const todayRow = todayRows[0];
+  const totalRow = totalRows[0];
   const days = new Set(rows.map((r) => r.day));
 
   // 今天还没完成时从昨天起算，别让「今天还没玩」立刻把连击清零。
@@ -112,11 +119,6 @@ export async function getChallengeStatus(
     streak += 1;
     cursor = shiftDay(cursor, -1);
   }
-
-  const [totalRow] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(dailyCompletions)
-    .where(eq(dailyCompletions.userId, userId));
 
   return {
     completed: Boolean(todayRow),

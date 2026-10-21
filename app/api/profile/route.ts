@@ -13,75 +13,88 @@ export async function GET() {
   }
   const db = getDb();
 
-  const myFavorites = await db
-    .select({
-      slug: games.slug,
-      title: games.title,
-      thumbnail: games.thumbnail,
-      category: games.category,
-      favoritedAt: favorites.createdAt,
-    })
-    .from(favorites)
-    .innerJoin(games, eq(games.id, favorites.gameId))
-    .where(eq(favorites.userId, user.id))
-    .orderBy(desc(favorites.createdAt));
+  // 收藏、成绩、最近游玩与六项统计、每日挑战互不依赖，一次并发发出；
+  // 只有挑战状态依赖挑战本身，整体从十几波往返压到两波。
+  const [
+    myFavorites,
+    myScores,
+    recent,
+    playCountRows,
+    favCountRows,
+    bestRows,
+    varietyRows,
+    ratingCountRows,
+    challenge,
+  ] = await Promise.all([
+    db
+      .select({
+        slug: games.slug,
+        title: games.title,
+        thumbnail: games.thumbnail,
+        category: games.category,
+        favoritedAt: favorites.createdAt,
+      })
+      .from(favorites)
+      .innerJoin(games, eq(games.id, favorites.gameId))
+      .where(eq(favorites.userId, user.id))
+      .orderBy(desc(favorites.createdAt)),
+    db
+      .select({
+        slug: games.slug,
+        title: games.title,
+        best: sql<number>`max(${scores.score})`.mapWith(Number),
+      })
+      .from(scores)
+      .innerJoin(games, eq(games.id, scores.gameId))
+      .where(eq(scores.userId, user.id))
+      .groupBy(games.slug, games.title)
+      .orderBy(desc(sql`max(${scores.score})`)),
+    db
+      .select({
+        slug: games.slug,
+        title: games.title,
+        thumbnail: games.thumbnail,
+        playedAt: playEvents.createdAt,
+      })
+      .from(playEvents)
+      .innerJoin(games, eq(games.id, playEvents.gameId))
+      .where(eq(playEvents.userId, user.id))
+      .orderBy(desc(playEvents.createdAt))
+      .limit(12),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(playEvents)
+      .where(eq(playEvents.userId, user.id)),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(favorites)
+      .where(eq(favorites.userId, user.id)),
+    db
+      .select({ best: sql<number>`coalesce(max(${scores.score}), 0)`.mapWith(Number) })
+      .from(scores)
+      .where(eq(scores.userId, user.id)),
+    db
+      .select({ n: sql<number>`count(distinct ${scores.gameId})`.mapWith(Number) })
+      .from(scores)
+      .where(eq(scores.userId, user.id)),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(ratings)
+      .where(eq(ratings.userId, user.id)),
+    getDailyChallenge(),
+  ]);
+  const playCount = playCountRows[0];
+  const favCount = favCountRows[0];
+  const bestRow = bestRows[0];
+  const variety = varietyRows[0];
+  const ratingCount = ratingCountRows[0];
+  // 成绩表按 (用户, 游戏) 收敛为一行，上榜游戏数直接用 distinct 计数，
+  // 既不受历史重复行影响，也免去再扫一次成绩表。
+  const scoreCount = variety?.n ?? 0;
 
-  const myScores = await db
-    .select({
-      slug: games.slug,
-      title: games.title,
-      best: sql<number>`max(${scores.score})`.mapWith(Number),
-      plays: sql<number>`count(*)`.mapWith(Number),
-    })
-    .from(scores)
-    .innerJoin(games, eq(games.id, scores.gameId))
-    .where(eq(scores.userId, user.id))
-    .groupBy(games.slug, games.title)
-    .orderBy(desc(sql`max(${scores.score})`));
-
-  const recent = await db
-    .select({
-      slug: games.slug,
-      title: games.title,
-      thumbnail: games.thumbnail,
-      playedAt: playEvents.createdAt,
-    })
-    .from(playEvents)
-    .innerJoin(games, eq(games.id, playEvents.gameId))
-    .where(eq(playEvents.userId, user.id))
-    .orderBy(desc(playEvents.createdAt))
-    .limit(12);
-
-  // 战绩总览：总游玩次数 / 提交成绩次数 / 收藏数 / 单项最高分
-  const [playCount] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(playEvents)
-    .where(eq(playEvents.userId, user.id));
-  const [scoreCount] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(scores)
-    .where(eq(scores.userId, user.id));
-  const [favCount] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(favorites)
-    .where(eq(favorites.userId, user.id));
-  const [bestRow] = await db
-    .select({ best: sql<number>`coalesce(max(${scores.score}), 0)`.mapWith(Number) })
-    .from(scores)
-    .where(eq(scores.userId, user.id));
-  const [variety] = await db
-    .select({ n: sql<number>`count(distinct ${scores.gameId})`.mapWith(Number) })
-    .from(scores)
-    .where(eq(scores.userId, user.id));
-  const [ratingCount] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(ratings)
-    .where(eq(ratings.userId, user.id));
-
-  const challenge = await getDailyChallenge();
   const challengeStatus = challenge ? await getChallengeStatus(user.id, challenge) : null;
   const achievements = evaluateAchievements({
-    scoreCount: scoreCount?.n ?? 0,
+    scoreCount,
     distinctGames: variety?.n ?? 0,
     bestScore: bestRow?.best ?? 0,
     playCount: playCount?.n ?? 0,
@@ -97,7 +110,7 @@ export async function GET() {
     recent,
     stats: {
       playCount: playCount?.n ?? 0,
-      scoreCount: scoreCount?.n ?? 0,
+      scoreCount,
       favCount: favCount?.n ?? 0,
       bestScore: bestRow?.best ?? 0,
     },

@@ -26,7 +26,7 @@ type Challenge = {
 
 type ProfileData = {
   favorites: { slug: string; title: string; thumbnail: string; category: string }[];
-  scores: { slug: string; title: string; best: number; plays: number }[];
+  scores: { slug: string; title: string; best: number }[];
   recent: { slug: string; title: string; thumbnail: string; playedAt: string }[];
   stats?: { playCount: number; scoreCount: number; favCount: number; bestScore: number };
   challenge?: Challenge | null;
@@ -91,7 +91,7 @@ export default function ProfilePage() {
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: "累计游玩", value: data.stats.playCount, icon: "🕹️" },
-            { label: "提交成绩", value: data.stats.scoreCount, icon: "🏅" },
+            { label: "上榜游戏", value: data.stats.scoreCount, icon: "🏅" },
             { label: "收藏游戏", value: data.stats.favCount, icon: "❤️" },
             { label: "单项最高分", value: data.stats.bestScore, icon: "👑" },
           ].map((s) => (
@@ -220,7 +220,6 @@ export default function ProfilePage() {
                 <tr>
                   <th className="text-left px-4 py-2.5">游戏</th>
                   <th className="text-right px-4 py-2.5">最高分</th>
-                  <th className="text-right px-4 py-2.5">提交次数</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,7 +233,6 @@ export default function ProfilePage() {
                     <td className="px-4 py-2.5 text-right font-mono text-neon-yellow font-semibold">
                       {s.best}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-slate-400">{s.plays}</td>
                   </tr>
                 ))}
               </tbody>
