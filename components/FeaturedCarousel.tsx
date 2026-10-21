@@ -23,6 +23,7 @@ function getReduceMotionOnServer(): boolean {
 export default function FeaturedCarousel({ games }: { games: GameWithRating[] }) {
   const [idx, setIdx] = useState(0);
   const [hover, setHover] = useState(false);
+  const [paused, setPaused] = useState(false);
   const reducedMotion = useSyncExternalStore(
     subscribeReduceMotion,
     getReduceMotion,
@@ -30,10 +31,10 @@ export default function FeaturedCarousel({ games }: { games: GameWithRating[] })
   );
 
   useEffect(() => {
-    if (games.length < 2 || hover || reducedMotion) return;
+    if (games.length < 2 || hover || paused || reducedMotion) return;
     const t = window.setInterval(() => setIdx((i) => (i + 1) % games.length), 6000);
     return () => window.clearInterval(t);
-  }, [games.length, hover, reducedMotion]);
+  }, [games.length, hover, paused, reducedMotion]);
 
   if (!games.length) return null;
   const game = games[idx];
@@ -71,17 +72,34 @@ export default function FeaturedCarousel({ games }: { games: GameWithRating[] })
         </div>
       </div>
       {games.length > 1 && (
-        <div className="absolute bottom-3 right-4 flex gap-2">
-          {games.map((_, i) => (
+        <div className="absolute bottom-2 right-3 flex items-center gap-0.5">
+          {!reducedMotion && (
             <button
-              key={i}
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              aria-pressed={paused}
+              aria-label={paused ? "继续自动轮播" : "暂停自动轮播"}
+              className="mr-1 h-6 w-6 rounded-md bg-black/50 border border-white/20 text-[10px] text-slate-200 hover:text-neon-cyan flex items-center justify-center"
+            >
+              <span aria-hidden="true">{paused ? "▶" : "❚❚"}</span>
+            </button>
+          )}
+          {games.map((g, i) => (
+            <button
+              key={g.id}
+              type="button"
               onClick={() => setIdx(i)}
-              aria-label={`第 ${i + 1} 个`}
-              aria-current={i === idx}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${
-                i === idx ? "bg-neon-cyan shadow-[0_0_8px_rgba(34,211,238,0.9)]" : "bg-white/30"
-              }`}
-            />
+              aria-label={`切换到 ${g.title}`}
+              aria-current={i === idx ? "true" : undefined}
+              className="h-6 w-6 rounded-full flex items-center justify-center"
+            >
+              <span
+                aria-hidden="true"
+                className={`block w-2.5 h-2.5 rounded-full transition-all ${
+                  i === idx ? "bg-neon-cyan shadow-[0_0_8px_rgba(34,211,238,0.9)]" : "bg-white/30"
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}

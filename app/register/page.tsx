@@ -47,9 +47,13 @@ export default function RegisterPage() {
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div>
-            <label className="text-sm text-slate-300 block mb-1.5">邮箱</label>
+            <label htmlFor="register-email" className="text-sm text-slate-300 block mb-1.5">
+              邮箱
+            </label>
             <input
+              id="register-email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -58,8 +62,12 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="text-sm text-slate-300 block mb-1.5">用户名（2-20 位）</label>
+            <label htmlFor="register-username" className="text-sm text-slate-300 block mb-1.5">
+              用户名（2-20 位）
+            </label>
             <input
+              id="register-username"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -68,9 +76,13 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="text-sm text-slate-300 block mb-1.5">密码（至少 6 位）</label>
+            <label htmlFor="register-password" className="text-sm text-slate-300 block mb-1.5">
+              密码（至少 6 位）
+            </label>
             <input
+              id="register-password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -80,7 +92,10 @@ export default function RegisterPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
+            <p
+              role="alert"
+              className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2"
+            >
               {error}
             </p>
           )}

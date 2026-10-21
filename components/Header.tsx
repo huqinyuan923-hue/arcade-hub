@@ -48,7 +48,7 @@ export default function Header() {
           <Link href="/" className="font-arcade text-sm sm:text-base neon-text text-neon-cyan whitespace-nowrap">
             ARCADE<span className="text-neon-pink neon-text-pink">HUB</span>
           </Link>
-          <nav className="hidden sm:flex items-center gap-1">
+          <nav aria-label="主导航" className="hidden sm:flex items-center gap-1">
             {NAV.map((item) => {
               const active =
                 item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -111,7 +111,7 @@ export default function Header() {
           )}
         </div>
       </div>
-      <nav className="sm:hidden flex gap-1 px-4 pb-2">
+      <nav aria-label="主导航" className="sm:hidden flex gap-1 px-4 pb-2">
         {NAV.map((item) => (
           <Link
             key={item.href}

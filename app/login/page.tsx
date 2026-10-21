@@ -50,8 +50,12 @@ function LoginForm() {
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div>
-            <label className="text-sm text-slate-300 block mb-1.5">邮箱 / 用户名</label>
+            <label htmlFor="login-account" className="text-sm text-slate-300 block mb-1.5">
+              邮箱 / 用户名
+            </label>
             <input
+              id="login-account"
+              autoComplete="username"
               value={account}
               onChange={(e) => setAccount(e.target.value)}
               required
@@ -60,9 +64,13 @@ function LoginForm() {
             />
           </div>
           <div>
-            <label className="text-sm text-slate-300 block mb-1.5">密码</label>
+            <label htmlFor="login-password" className="text-sm text-slate-300 block mb-1.5">
+              密码
+            </label>
             <input
+              id="login-password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -71,7 +79,10 @@ function LoginForm() {
             />
           </div>
           {error && (
-            <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
+            <p
+              role="alert"
+              className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2"
+            >
               {error}
             </p>
           )}

@@ -70,9 +70,13 @@ export default async function GamesPage({
         <form action="/games" method="get" className="flex gap-2">
           {category && <input type="hidden" name="category" value={category} />}
           <input type="hidden" name="sort" value={sort} />
+          <label htmlFor="game-search" className="sr-only">
+            搜索游戏
+          </label>
           <input
             id="game-search"
             name="q"
+            type="search"
             defaultValue={q}
             placeholder="搜索游戏…"
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/15 text-sm w-48 sm:w-64 outline-none focus:border-neon-cyan placeholder:text-slate-500"
@@ -123,11 +127,14 @@ export default async function GamesPage({
       </div>
 
       {games.length ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {games.map((g) => (
-            <GameCard key={g.id} game={g} />
-          ))}
-        </div>
+        <>
+          <h2 className="sr-only">游戏列表</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {games.map((g) => (
+              <GameCard key={g.id} game={g} />
+            ))}
+          </div>
+        </>
       ) : (
         <div className="card p-14 text-center text-slate-400">
           <p className="text-3xl mb-3">👾</p>
