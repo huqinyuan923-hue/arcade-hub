@@ -136,9 +136,15 @@ export default function GameFrame({
         }
         if (d.isNewBest) {
           setBest(d.score ?? data.score);
-          showToast(`🎉 新纪录 ${data.score}！当前第 ${d.rank} 名`, "success");
+          showToast(
+            `🎉 新纪录 ${data.score}！当前第 ${d.rank} 名${d.challenge?.completed ? " · 🎯 每日挑战完成" : ""}`,
+            "success"
+          );
         } else {
-          showToast(`成绩 ${data.score}（最高 ${d.previousBest}）`, "info");
+          showToast(
+            `成绩 ${data.score}（最高 ${d.previousBest}）${d.challenge?.completed ? " · 🎯 每日挑战完成" : ""}`,
+            "info"
+          );
         }
         // 不在此处 router.refresh()：RSC 重取会重挂 iframe，正在玩的一局被清空。
         // 本次最高分已由 setBest 就地更新，排行榜在下次导航时自然刷新。

@@ -6,6 +6,7 @@ import GameFrame from "@/components/GameFrame";
 import FavoriteButton from "@/components/FavoriteButton";
 import RatingStars from "@/components/RatingStars";
 import { getSessionUser } from "@/lib/auth";
+import { getChallengeStatus, getDailyChallenge } from "@/lib/daily";
 import {
   formatPlays,
 } from "@/components/GameCard";
@@ -58,6 +59,12 @@ export default async function GameDetailPage({
     user ? isFavorited(user.id, game.id) : Promise.resolve(false),
     user && game.hasScore ? getPersonalBest(game.id, user.id) : Promise.resolve(null),
   ]);
+  const challenge = await getDailyChallenge();
+  const isChallenge = Boolean(challenge && challenge.game.id === game.id);
+  const challengeStatus =
+    challenge && user && challenge.game.id === game.id
+      ? await getChallengeStatus(user.id, challenge)
+      : null;
 
   // Next.js 不解析目录索引：站内游戏必须指向完整 index.html，尾部斜杠路径会 404
   const rawPlayPath = game.playPath ?? `/games/${game.slug}/index.html`;
@@ -100,6 +107,34 @@ export default async function GameDetailPage({
             }}
           />
           <GameFrame slug={game.slug} title={game.title} src={src} />
+
+          {isChallenge && challenge && (
+            <div
+              className="card p-3 sm:p-4 flex flex-wrap items-center justify-between gap-2"
+              style={{ borderColor: "rgba(34, 211, 238, 0.45)" }}
+            >
+              <p className="text-sm text-slate-300">
+                🎯 <span className="font-semibold text-neon-cyan">今日挑战</span>
+                <span className="text-slate-400 ml-2">
+                  单局达到{" "}
+                  <span className="text-neon-yellow font-mono font-semibold">{challenge.target}</span>{" "}
+                  分
+                </span>
+                {challengeStatus?.completed && (
+                  <span className="ml-2 text-emerald-300">
+                    ✅ 已完成（{challengeStatus.bestScore} 分）
+                  </span>
+                )}
+                {challengeStatus && !challengeStatus.completed && (
+                  <span className="ml-2 text-slate-400">⏳ 未完成</span>
+                )}
+                {!user && <span className="ml-2 text-slate-500">登录后记录挑战进度</span>}
+              </p>
+              {challengeStatus && challengeStatus.streak > 0 && (
+                <span className="text-xs text-neon-pink">🔥 连续 {challengeStatus.streak} 天</span>
+              )}
+            </div>
+          )}
 
           <div className="card p-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-col gap-1">

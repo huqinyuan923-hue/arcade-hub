@@ -106,5 +106,26 @@ export const playEvents = pgTable(
   (t) => [index("play_events_user_idx").on(t.userId, t.createdAt)]
 );
 
+export const dailyCompletions = pgTable(
+  "daily_completions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: integer("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    day: text("day").notNull(), // 东八区日期 YYYY-MM-DD
+    bestScore: integer("best_score").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // 每人每天只记一条：当日挑战只有一款游戏
+    uniqueIndex("daily_completions_user_day_uq").on(t.userId, t.day),
+    index("daily_completions_day_idx").on(t.day),
+  ]
+);
+
 export type User = typeof users.$inferSelect;
 export type Game = typeof games.$inferSelect;

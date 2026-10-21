@@ -3,11 +3,34 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type Achievement = {
+  id: string;
+  icon: string;
+  title: string;
+  desc: string;
+  unlocked: boolean;
+};
+
+type Challenge = {
+  day: string;
+  dayLabel: string;
+  slug: string;
+  title: string;
+  thumbnail: string;
+  target: number;
+  completed: boolean;
+  bestScore: number;
+  streak: number;
+  total: number;
+};
+
 type ProfileData = {
   favorites: { slug: string; title: string; thumbnail: string; category: string }[];
   scores: { slug: string; title: string; best: number; plays: number }[];
   recent: { slug: string; title: string; thumbnail: string; playedAt: string }[];
   stats?: { playCount: number; scoreCount: number; favCount: number; bestScore: number };
+  challenge?: Challenge | null;
+  achievements?: Achievement[];
 };
 
 export default function ProfilePage() {
@@ -78,6 +101,94 @@ export default function ProfilePage() {
               <p className="text-xs text-slate-400 mt-1">{s.label}</p>
             </div>
           ))}
+        </section>
+      )}
+
+      {data?.challenge && (
+        <section>
+          <h2 className="text-lg font-bold mb-3">🎯 每日挑战</h2>
+          <div className="card p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={data.challenge.thumbnail || "/thumbs/default.svg"}
+                alt={data.challenge.title}
+                className="w-16 h-12 rounded-lg object-cover shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">{data.challenge.dayLabel}</p>
+                <Link
+                  href={`/game/${data.challenge.slug}`}
+                  className="font-bold hover:text-neon-cyan transition-colors"
+                >
+                  {data.challenge.title}
+                </Link>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  单局达到{" "}
+                  <span className="text-neon-yellow font-mono font-semibold">
+                    {data.challenge.target}
+                  </span>{" "}
+                  分
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`text-xs px-2.5 py-1 rounded-lg border ${
+                  data.challenge.completed
+                    ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-200"
+                    : "border-white/15 bg-white/5 text-slate-300"
+                }`}
+              >
+                {data.challenge.completed
+                  ? `✅ 已完成${data.challenge.bestScore ? `（${data.challenge.bestScore} 分）` : ""}`
+                  : "⏳ 今日未完成"}
+              </span>
+              <span className="text-xs text-slate-400">
+                🔥 连续 {data.challenge.streak} 天 · 累计完成 {data.challenge.total} 次
+              </span>
+              {!data.challenge.completed && (
+                <Link
+                  href={`/game/${data.challenge.slug}`}
+                  className="btn-neon px-3 py-1.5 rounded-lg text-xs font-semibold"
+                >
+                  去完成
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {data?.achievements && data.achievements.length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-3">
+            🏅 成就（{data.achievements.filter((a) => a.unlocked).length}/
+            {data.achievements.length}）
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.achievements.map((a) => (
+              <div
+                key={a.id}
+                className={`card p-3 flex items-start gap-3 ${a.unlocked ? "" : "opacity-45"}`}
+              >
+                <span className="text-2xl leading-none">{a.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    {a.title}
+                    <span
+                      className={`text-[10px] font-normal ${
+                        a.unlocked ? "text-emerald-300" : "text-slate-500"
+                      }`}
+                    >
+                      {a.unlocked ? "已解锁" : "🔒 未解锁"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">{a.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

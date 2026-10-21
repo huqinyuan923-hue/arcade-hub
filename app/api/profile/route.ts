@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { favorites, games, playEvents, scores } from "@/db/schema";
+import { favorites, games, playEvents, ratings, scores } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { evaluateAchievements } from "@/lib/achievements";
+import { getChallengeStatus, getDailyChallenge } from "@/lib/daily";
 
 export async function GET() {
   const user = await requireUser();
@@ -67,6 +69,27 @@ export async function GET() {
     .select({ best: sql<number>`coalesce(max(${scores.score}), 0)`.mapWith(Number) })
     .from(scores)
     .where(eq(scores.userId, user.id));
+  const [variety] = await db
+    .select({ n: sql<number>`count(distinct ${scores.gameId})`.mapWith(Number) })
+    .from(scores)
+    .where(eq(scores.userId, user.id));
+  const [ratingCount] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(ratings)
+    .where(eq(ratings.userId, user.id));
+
+  const challenge = await getDailyChallenge();
+  const challengeStatus = challenge ? await getChallengeStatus(user.id, challenge) : null;
+  const achievements = evaluateAchievements({
+    scoreCount: scoreCount?.n ?? 0,
+    distinctGames: variety?.n ?? 0,
+    bestScore: bestRow?.best ?? 0,
+    playCount: playCount?.n ?? 0,
+    favCount: favCount?.n ?? 0,
+    ratingCount: ratingCount?.n ?? 0,
+    totalCompletions: challengeStatus?.total ?? 0,
+    streak: challengeStatus?.streak ?? 0,
+  });
 
   return NextResponse.json({
     favorites: myFavorites,
@@ -78,5 +101,20 @@ export async function GET() {
       favCount: favCount?.n ?? 0,
       bestScore: bestRow?.best ?? 0,
     },
+    challenge: challenge
+      ? {
+          day: challenge.day,
+          dayLabel: challenge.dayLabel,
+          slug: challenge.game.slug,
+          title: challenge.game.title,
+          thumbnail: challenge.game.thumbnail,
+          target: challenge.target,
+          completed: challengeStatus?.completed ?? false,
+          bestScore: challengeStatus?.bestScore ?? 0,
+          streak: challengeStatus?.streak ?? 0,
+          total: challengeStatus?.total ?? 0,
+        }
+      : null,
+    achievements,
   });
 }

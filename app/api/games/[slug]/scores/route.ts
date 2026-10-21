@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { games, scores } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
 import { getTopScores, MAX_SCORE } from "@/lib/games";
+import { recordDailyCompletion } from "@/lib/daily";
 import { allow, clientKey, retryAfter } from "@/lib/rate-limit";
 
 const SUBMIT_WINDOW_MS = 60_000;
@@ -67,6 +68,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
   const gameId = found[0].id;
   const owner = and(eq(scores.userId, user.id), eq(scores.gameId, gameId));
 
+  // 挑战记录不能拖垮成绩提交：失败时按「本局未完成挑战」处理。
+  let challenge: { completed: boolean; target: number } | null = null;
+  try {
+    challenge = await recordDailyCompletion(user.id, gameId, score);
+  } catch {
+    challenge = null;
+  }
+
   const bestRows = await db
     .select({ best: sql<number>`coalesce(max(${scores.score}), 0)`.mapWith(Number) })
     .from(scores)
@@ -74,7 +83,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
   const previousBest = bestRows[0]?.best ?? 0;
   if (score <= previousBest) {
     // 非新纪录：不写行、不重算全表排名，排行榜只需要玩家自己的最高分。
-    return NextResponse.json({ ok: true, isNewBest: false, previousBest, rank: null });
+    return NextResponse.json({ ok: true, isNewBest: false, previousBest, rank: null, challenge });
   }
 
   // 每个 (用户, 游戏) 最终只保留一行最高分：历史重复行在新纪录时一并收敛，
@@ -108,5 +117,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     isNewBest: true,
     previousBest,
     rank: rankRows[0]?.rank ?? 1,
+    challenge,
   });
 }

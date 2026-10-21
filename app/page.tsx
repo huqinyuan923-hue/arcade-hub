@@ -5,24 +5,15 @@ import FeaturedCarousel from "@/components/FeaturedCarousel";
 import { getDb } from "@/db";
 import { games, playEvents } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
+import { getChallengeStatus, getDailyChallenge } from "@/lib/daily";
 import { getCategories, getFeaturedGames, listGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
-// 放在组件外：渲染期间直接调用 Date.now() 会被 React 判定为不纯
-function today() {
-  const now = new Date();
-  return {
-    index: Math.floor(now.getTime() / 86400000),
-    label: now.toLocaleDateString("zh-CN", { month: "long", day: "numeric" }),
-  };
-}
-
 export default async function HomePage() {
   const db = getDb();
   const user = await getSessionUser();
-  const day = today();
-  const [featured, newest, hottest, categories, totals, recent, gameCount] = await Promise.all([
+  const [featured, newest, hottest, categories, totals, recent, gameCount, challenge] = await Promise.all([
     getFeaturedGames(5),
     listGames({ sort: "new", limit: 8 }),
     listGames({ sort: "hot", limit: 8 }),
@@ -45,7 +36,9 @@ export default async function HomePage() {
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(games)
       .where(eq(games.status, "published")),
+    getDailyChallenge(),
   ]);
+  const challengeStatus = user && challenge ? await getChallengeStatus(user.id, challenge) : null;
   const totalPlays = totals[0]?.total ?? 0;
   const totalGames = gameCount[0]?.n ?? 0;
   // 去重（同一游戏只保留最近一条）
@@ -57,9 +50,6 @@ export default async function HomePage() {
       return true;
     })
     .slice(0, 6);
-  // 今日推荐：按日期确定性轮换，每天一款
-  const dailyPool = [...featured, ...hottest, ...newest];
-  const dailyPick = dailyPool.length ? dailyPool[day.index % dailyPool.length] : null;
 
   return (
     <div className="flex flex-col gap-10">
@@ -99,23 +89,49 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {dailyPick && (
-        <section className="card p-4 sm:p-5 flex items-center justify-between gap-4">
+      {challenge && (
+        <section className="card p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={dailyPick.thumbnail || "/thumbs/default.svg"}
-              alt={dailyPick.title}
+              src={challenge.game.thumbnail || "/thumbs/default.svg"}
+              alt={challenge.game.title}
               className="w-16 h-12 rounded-lg object-cover shrink-0"
             />
             <div className="min-w-0">
-              <p className="text-xs text-slate-500">📅 今日推荐 · {day.label}</p>
-              <p className="font-bold text-slate-100 truncate">{dailyPick.title}</p>
+              <p className="text-xs text-slate-500">🎯 每日挑战 · {challenge.dayLabel}</p>
+              <p className="font-bold text-slate-100 truncate">{challenge.game.title}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                单局达到{" "}
+                <span className="text-neon-yellow font-mono font-semibold">{challenge.target}</span>{" "}
+                分即完成
+                {challengeStatus && challengeStatus.streak > 0 && (
+                  <span className="ml-2 text-neon-pink">🔥 连续 {challengeStatus.streak} 天</span>
+                )}
+              </p>
             </div>
           </div>
-          <Link href={`/game/${dailyPick.slug}`} className="btn-neon px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap">
-            ▶ 去玩
-          </Link>
+          <div className="flex items-center gap-3">
+            {challengeStatus ? (
+              <span
+                className={`text-xs px-2.5 py-1 rounded-lg border ${
+                  challengeStatus.completed
+                    ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-200"
+                    : "border-white/15 bg-white/5 text-slate-300"
+                }`}
+              >
+                {challengeStatus.completed ? "✅ 已完成" : "⏳ 未完成"}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-500">登录后记录挑战进度</span>
+            )}
+            <Link
+              href={`/game/${challenge.game.slug}`}
+              className="btn-neon px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap"
+            >
+              ▶ 去挑战
+            </Link>
+          </div>
         </section>
       )}
 
