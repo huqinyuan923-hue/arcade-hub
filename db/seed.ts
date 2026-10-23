@@ -414,6 +414,16 @@ const GAMES: SeedGame[] = [
     plays: 130,
     sortOrder: 42,
   },
+  {
+    slug: "neon-lander",
+    title: "霓虹登月",
+    description:
+      "经典 Lunar Lander：微重力下点火减速、调姿着陆。宽平台 ×1、窄平台 ×2.5，落地要求速度小于 2.2 且倾角小于 25°，剩余燃料折算加分，关卡越深初速越大。",
+    category: "经典",
+    sourceType: "builtin",
+    plays: 120,
+    sortOrder: 43,
+  },
 ];
 
 const DEMO_USERS = [
