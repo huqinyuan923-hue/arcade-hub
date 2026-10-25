@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
 import Header from "@/components/Header";
+import { EntranceOverlay } from "@/components/entrance-overlay";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,7 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} ${pressStart.variable} h-full antialiased`}
     >
+      {/* 进站动画会话标记：水合前执行（每会话一次） */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `try{if(sessionStorage.getItem('boot-seen')){document.documentElement.dataset.boot='done'}else{sessionStorage.setItem('boot-seen','1')}}catch(e){}`,
+        }}
+      />
       <body className="min-h-full flex flex-col">
+        <EntranceOverlay />
         <Header />
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">{children}</main>
         <footer className="border-t border-white/10 mt-10">
