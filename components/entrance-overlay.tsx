@@ -11,6 +11,10 @@ export function EntranceOverlay() {
   const [gone, setGone] = useState(false)
 
   useEffect(() => {
+    if (document.documentElement.dataset.boot === 'done') {
+      setGone(true)
+      return
+    }
     const onAnimEnd = (e: AnimationEvent) => {
       if (e.animationName === 'ah-exit') {
         document.documentElement.dataset.boot = 'done'
@@ -42,7 +46,7 @@ html[data-boot='done'] .ah-boot{display:none}
 .ah-boot .ah-ready{font-family:var(--font-jetbrains-mono),monospace;font-size:clamp(12px,1.8vw,15px);letter-spacing:.3em;color:#a3e635;opacity:0;animation:ah-in .35s ease 1.7s both}
 .ah-boot .ah-bar{width:min(300px,60vw);height:4px;border-radius:999px;overflow:hidden;background:rgba(168,85,247,.18);animation:ah-in .3s ease .7s both}
 .ah-boot .ah-bar::before{content:'';display:block;height:100%;background:repeating-linear-gradient(90deg,#22d3ee 0 14px,#0d0b1e 14px 18px);animation:ah-fill 1.4s steps(12) 0.7s forwards;transform-origin:left;transform:scaleX(0)}
-@keyframes ah-in{from{opacity:0;transform:translateY(12px) scale(.96)}}
+@keyframes ah-in{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes ah-blink{50%{opacity:.15}}
 @keyframes ah-fill{to{transform:scaleX(1)}}
 @keyframes ah-exit{to{opacity:0;visibility:hidden;transform:scale(1.05)}}
